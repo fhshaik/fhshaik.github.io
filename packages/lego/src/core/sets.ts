@@ -87,6 +87,8 @@ export interface LegoSet {
     color?: string;
     intensity?: number;
     lift?: number;
+    /** Fraction of the radius left transparent, so the glow is a ring. */
+    inner?: number;
   }[];
   /** Theme this set brings with it, so each build sets its own mood. */
   theme?: LegoThemeName;
@@ -123,7 +125,15 @@ export const LEGO_SETS = {
       // in the painting, so its halo is wide and faint — a corona bleeding past
       // the edge, not a hotspot laid over the top, which only clipped and let the
       // moon's own studs show through as dark specks.
-      { position: [140, -452, -28], size: 380, color: "#FFEFAF", intensity: 0.7, lift: 26 },
+      {
+        position: [140, -452, -28],
+        size: 420,
+        color: "#FFE9A0",
+        intensity: 0.95,
+        lift: 26,
+        // Hollow: the disc is 168 LDU across, so the glow starts outside it.
+        inner: 0.42,
+      },
       // The eighteen star cores, at the positions their tiles occupy.
       { position: [-320, -228, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
       { position: [-133, -241, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
