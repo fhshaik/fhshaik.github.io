@@ -5,6 +5,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { STUDIO_THEME, type LegoTheme } from "../tokens/theme";
 import { partGeometry } from "./geometry";
 import { ghostMaterial, partMaterial, toLegoColor, type ColorInput } from "./materials";
@@ -101,6 +102,14 @@ export interface LegoStageOptions {
    * otherwise. `strength` around 0.5 reads as glow; above 1 it hazes over.
    */
   bloom?: boolean | { strength?: number; radius?: number; threshold?: number };
+  /**
+   * Ambient occlusion. Darkens the crevices between bricks and inside studs.
+   *
+   * This is what stops a brick-built surface reading as flat colour: every seam
+   * and stud gains contact shadow, so the surface is legible as thousands of
+   * separate pieces. Costs a depth-normal pass.
+   */
+  ao?: boolean | { radius?: number; intensity?: number };
   /** Slow turntable spin, in degrees per second. 0 disables it. */
   autoRotate?: number;
   cameraPosition?: [number, number, number];
@@ -166,6 +175,7 @@ export class LegoStage {
   private environmentTexture?: THREE.Texture;
   private composer?: EffectComposer;
   private bloomPass?: UnrealBloomPass;
+  private aoPass?: GTAOPass;
   private ground?: THREE.Mesh;
   private frame = 0;
   private dirty = true;
@@ -192,6 +202,7 @@ export class LegoStage {
       exposure: options.exposure ?? 1,
       fog: options.fog ?? false,
       bloom: options.bloom ?? false,
+      ao: options.ao ?? false,
       autoRotate: options.autoRotate ?? 0,
       cameraPosition:
         options.cameraPosition ?? (options.isometric ? [40, 34, 40] : [14, 11, 16]),
@@ -266,13 +277,13 @@ export class LegoStage {
         night ? 0x1a2038 : cosy ? 0x8a7563 : 0x6f6357,
         // A night scene wants most of its light to come from the glowing parts,
         // not from ambient fill.
-        night ? 0.55 : cosy ? 2.1 : 1.6,
+        night ? 0.72 : cosy ? 2.1 : 1.6,
       ),
     );
 
     const key = new THREE.DirectionalLight(
       night ? 0xc8d4ff : cosy ? 0xffe6bd : 0xfff3dd,
-      night ? 0.85 : cosy ? 2.1 : 2.6,
+      night ? 1.15 : cosy ? 2.1 : 2.6,
     );
     key.position.set(-9, 15, 9);
     key.castShadow = this.options.shadows;
@@ -324,11 +335,30 @@ export class LegoStage {
   }
 
   private setupBloom(): void {
-    if (!this.options.bloom) return;
-    const settings = typeof this.options.bloom === "object" ? this.options.bloom : {};
+    if (!this.options.bloom && !this.options.ao) return;
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+    if (this.options.ao) {
+      const settings = typeof this.options.ao === "object" ? this.options.ao : {};
+      const width = Math.max(this.container.clientWidth, 1);
+      const height = Math.max(this.container.clientHeight, 1);
+      const ao = new GTAOPass(this.scene, this.camera, width, height);
+      // Radius is in world units; a stud is 20 LDU, so a small radius keeps the
+      // occlusion in the seams instead of dimming whole panels.
+      ao.updateGtaoMaterial({ radius: settings.radius ?? 0.35 });
+      ao.blendIntensity = settings.intensity ?? 0.85;
+      this.composer.addPass(ao);
+      this.aoPass = ao;
+    }
+
+    if (!this.options.bloom) {
+      this.composer.addPass(new OutputPass());
+      return;
+    }
+
+    const settings = typeof this.options.bloom === "object" ? this.options.bloom : {};
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(1, 1),
       settings.strength ?? 0.55,
@@ -350,21 +380,45 @@ export class LegoStage {
    * model carries the loader's own materials, so name matching would only ever
    * catch the parts this library generated.
    *
+   * Colour alone is not enough for a painting, though. In 21333, the same
+   * bright-light-yellow is both the moon and the long brushstrokes streaking
+   * across the sky — glowing all of it floods the canvas. So candidates are also
+   * filtered by *shape*: compact, square-ish parts (a round tile, a dish) glow;
+   * long thin ones (a 1x8 plate) do not.
+   *
+   * Materials are cloned per matching mesh, so lighting a star does not light
+   * every other part that happened to share its material.
+   *
    * Returns the materials it touched, so a caller can animate them.
    */
-  setGlow(colors: readonly ColorInput[], intensity = 1): THREE.MeshStandardMaterial[] {
+  setGlow(
+    colors: readonly ColorInput[],
+    intensity = 1,
+    shape: { maxSize?: number; maxElongation?: number } = {},
+  ): THREE.MeshStandardMaterial[] {
     const targets = colors.map((color) => new THREE.Color(toLegoColor(color).hex));
+    // Defaults in LDraw units: a 2x2 round part is 40 wide, the moon's dish
+    // larger; a sky streak is far longer than it is deep.
+    const maxSize = shape.maxSize ?? 110;
+    const maxElongation = shape.maxElongation ?? 2.2;
     const touched: THREE.MeshStandardMaterial[] = [];
-    const seen = new Set<THREE.Material>();
 
     this.scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
-      if (!mesh.material) return;
+      if (!mesh.isMesh || !mesh.geometry) return;
+
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox;
+      if (!box) return;
+      const size = box.getSize(new THREE.Vector3());
+      const longest = Math.max(size.x, size.y, size.z);
+      const shortest = Math.max(Math.min(size.x, size.y, size.z), 1e-6);
+      if (longest > maxSize) return;
+      if (longest / shortest > maxElongation) return;
+
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const material of materials) {
-        if (!(material instanceof THREE.MeshStandardMaterial)) continue;
-        if (seen.has(material)) continue;
-        seen.add(material);
+      const replaced = materials.map((material) => {
+        if (!(material instanceof THREE.MeshStandardMaterial)) return material;
         // Small tolerance: the loader and this library both round sRGB values.
         const near = targets.some(
           (target) =>
@@ -372,16 +426,72 @@ export class LegoStage {
             Math.abs(target.g - material.color.g) < 0.04 &&
             Math.abs(target.b - material.color.b) < 0.04,
         );
-        if (!near) continue;
-        material.emissive.copy(material.color);
-        material.emissiveIntensity = intensity;
-        material.needsUpdate = true;
-        touched.push(material);
+        if (!near) return material;
+
+        const glowing = material.clone();
+        glowing.emissive.copy(glowing.color);
+        glowing.emissiveIntensity = intensity;
+        glowing.needsUpdate = true;
+        touched.push(glowing);
+        return glowing;
+      });
+
+      if (replaced.some((material, index) => material !== materials[index])) {
+        mesh.material = Array.isArray(mesh.material) ? replaced : replaced[0];
       }
     });
 
     this.markDirty();
     return touched;
+  }
+
+  /**
+   * Upgrades a loaded model's materials to physical plastic.
+   *
+   * LDrawLoader produces flat standard materials, which is why a brick-built
+   * scene can look like coloured paper. Real ABS has a clear specular coat over
+   * a slightly rough body; adding it is the difference between "flat colour" and
+   * "moulded plastic".
+   */
+  refinePlastic(options: { clearcoat?: number; roughness?: number } = {}): void {
+    const clearcoat = options.clearcoat ?? 0.5;
+    const roughness = options.roughness ?? 0.42;
+    const upgraded = new Map<THREE.Material, THREE.MeshPhysicalMaterial>();
+
+    this.scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+      const next = materials.map((material) => {
+        if (material instanceof THREE.MeshPhysicalMaterial) return material;
+        if (!(material instanceof THREE.MeshStandardMaterial)) return material;
+        const existing = upgraded.get(material);
+        if (existing) return existing;
+
+        const physical = new THREE.MeshPhysicalMaterial({
+          color: material.color,
+          roughness,
+          metalness: 0,
+          clearcoat,
+          clearcoatRoughness: 0.22,
+          transparent: material.transparent,
+          opacity: material.opacity,
+          side: material.side,
+          emissive: material.emissive,
+          emissiveIntensity: material.emissiveIntensity,
+        });
+        physical.name = material.name;
+        upgraded.set(material, physical);
+        return physical;
+      });
+
+      if (next.some((material, index) => material !== materials[index])) {
+        mesh.material = Array.isArray(mesh.material) ? next : next[0];
+      }
+    });
+
+    this.markDirty();
   }
 
   /** The bloom pass, for animating its strength. Undefined unless enabled. */
@@ -935,6 +1045,7 @@ export class LegoStage {
     if (width === 0 || height === 0) return;
     this.renderer.setSize(width, height, false);
     this.composer?.setSize(width, height);
+    this.aoPass?.setSize(width, height);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.applyFrameShift();

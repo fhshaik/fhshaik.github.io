@@ -78,13 +78,24 @@ export default function LDrawPortfolio() {
         tour={TOUR}
         parallax={3}
         shift={0.2}
-        exposure={0.78}
-        // Gentle, and only above a high threshold: the stars should glow, not
-        // the whole canvas.
-        bloom={{ strength: 0.28, radius: 0.5, threshold: 0.9 }}
-        // Yellow only. Glowing the white parts lit the entire sky, because the
-        // swirls are mostly white.
-        glow={{ colors: ["yellow"], intensity: 0.85, twinkle: 0.3 }}
+        exposure={0.88}
+        // Contact shadow in every seam and stud: this is what stops a
+        // brick-built surface reading as flat colour.
+        ao={{ radius: 0.3, intensity: 0.9 }}
+        plastic={{ clearcoat: 0.55, roughness: 0.4 }}
+        bloom={{ strength: 0.42, radius: 0.62, threshold: 0.62 }}
+        /*
+         * The warm family only, read off the model itself: bright-light-yellow
+         * is the moon and the star haloes (78 parts), bright-light-orange the
+         * star cores, and orange the village windows — so the houses light up
+         * too. White is deliberately excluded: the swirls are mostly white, and
+         * glowing them turned the whole sky into a lamp.
+         */
+        glow={{
+          colors: ["bright-light-yellow", "bright-light-orange", "yellow", "orange"],
+          intensity: 1.35,
+          twinkle: 0.26,
+        }}
       />
 
       <div className="world">

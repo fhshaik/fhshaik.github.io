@@ -55,6 +55,10 @@ export interface LegoBackdropProps {
   fog?: boolean;
   /** Bright surfaces bleed light. Costs a full-screen pass. */
   bloom?: boolean | { strength?: number; radius?: number; threshold?: number };
+  /** Contact shadow in the seams between bricks. */
+  ao?: boolean | { radius?: number; intensity?: number };
+  /** Upgrade the loaded model's materials to physical plastic. */
+  plastic?: boolean | { clearcoat?: number; roughness?: number };
   /** LEGO colours that should emit light, with an optional twinkle. */
   glow?: readonly string[] | { colors: readonly string[]; intensity?: number; twinkle?: number };
   /**
@@ -109,6 +113,8 @@ export function LegoBackdrop({
   fog = true,
   exposure,
   bloom = false,
+  ao = false,
+  plastic = true,
   glow,
   preload,
   tour,
@@ -171,6 +177,7 @@ export function LegoBackdrop({
         fog={fog}
         exposure={exposure}
         bloom={bloom}
+        ao={ao}
         onPick={interactive ? onPick : undefined}
         label={label}
       >
@@ -206,6 +213,9 @@ export function LegoBackdrop({
           />
         ) : null}
         {petals ? <Petals {...(typeof petals === "object" ? petals : {})} /> : null}
+        {plastic && modelReady ? (
+          <Plastic {...(typeof plastic === "object" ? plastic : {})} />
+        ) : null}
         {glow && modelReady ? (
           <Glow
             {...(Array.isArray(glow) ? { colors: glow } : (glow as { colors: readonly string[] }))}
@@ -444,6 +454,20 @@ function Preload({ slugs }: { slugs: readonly (LegoSetSlug | string)[] }) {
     const timer = setTimeout(run, 2500);
     return () => clearTimeout(timer);
   }, [key]);
+
+  return null;
+}
+
+/** Applies the physical-plastic upgrade once the model is in the scene. */
+function Plastic({ clearcoat, roughness }: { clearcoat?: number; roughness?: number }) {
+  const stage = useLegoStage();
+
+  useEffect(() => {
+    if (!stage) return;
+    // A frame's grace so the model's materials are actually in the scene.
+    const frame = requestAnimationFrame(() => stage.refinePlastic({ clearcoat, roughness }));
+    return () => cancelAnimationFrame(frame);
+  }, [stage, clearcoat, roughness]);
 
   return null;
 }

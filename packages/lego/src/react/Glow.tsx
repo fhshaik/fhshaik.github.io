@@ -16,6 +16,12 @@ export interface GlowProps {
   twinkle?: number;
   /** Oscillations per second. */
   speed?: number;
+  /**
+   * Shape filter, in LDraw units. Only compact, square-ish parts glow, so a
+   * star lights up and a long brushstroke of the same colour does not.
+   */
+  maxSize?: number;
+  maxElongation?: number;
 }
 
 /**
@@ -25,7 +31,14 @@ export interface GlowProps {
  * being yellow tiles and start being light sources. The twinkle is deliberately
  * slow and shallow — a flicker reads as a bug, a drift reads as air.
  */
-export function Glow({ colors, intensity = 1.15, twinkle = 0.3, speed = 0.22 }: GlowProps) {
+export function Glow({
+  colors,
+  intensity = 1.15,
+  twinkle = 0.3,
+  speed = 0.22,
+  maxSize,
+  maxElongation,
+}: GlowProps) {
   const stage = useLegoStage();
   const key = colors.join(",");
 
@@ -35,7 +48,7 @@ export function Glow({ colors, intensity = 1.15, twinkle = 0.3, speed = 0.22 }: 
     // Wait a frame: the model's materials must be in the scene to be found.
     let stop: (() => void) | undefined;
     const frame = requestAnimationFrame(() => {
-      const materials = stage.setGlow(key.split(","), intensity);
+      const materials = stage.setGlow(key.split(","), intensity, { maxSize, maxElongation });
       if (materials.length === 0 || twinkle <= 0) return;
 
       const reduced =
@@ -61,7 +74,7 @@ export function Glow({ colors, intensity = 1.15, twinkle = 0.3, speed = 0.22 }: 
       cancelAnimationFrame(frame);
       stop?.();
     };
-  }, [stage, key, intensity, twinkle, speed]);
+  }, [stage, key, intensity, twinkle, speed, maxSize, maxElongation]);
 
   return null;
 }
