@@ -1,0 +1,18 @@
+{
+  "slug": "grand-piano",
+  "set": "21323",
+  "title": null,
+  "author": "Orion Pobursky [OrionP]",
+  "source": "https://library.ldraw.org/library/omr/21323-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 3661,
+  "uniquePlacedPartReferences": 217,
+  "authoredSubmodels": 124,
+  "packedLibraryFiles": 670,
+  "missingDependencies": [
+    "parts/s/6060s01.dat",
+    "2-4ring18.dat",
+    "32198a.dat",
+    "axleho12.dat"
+  ]
+}

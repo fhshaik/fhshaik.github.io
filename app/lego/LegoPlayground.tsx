@@ -32,7 +32,6 @@ export default function LegoPlayground() {
         set={set}
         theme={set === "cherry-blossoms" ? "blossom" : "studio"}
         lighting="cosy"
-        baseplate={22}
         baseplateColor={set === "cherry-blossoms" ? "dark-brown" : "black"}
         sweep={{ azimuth: 150, elevation: [12, 32], zoom: [1, 1.5] }}
         parallax={5}

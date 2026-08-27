@@ -1,0 +1,12 @@
+{
+  "slug": "colosseum",
+  "set": "10276",
+  "title": null,
+  "author": "Orion Pobursky [OrionP]",
+  "source": "https://library.ldraw.org/library/omr/10276-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 9060,
+  "uniquePlacedPartReferences": 125,
+  "authoredSubmodels": 231,
+  "packedLibraryFiles": 402
+}

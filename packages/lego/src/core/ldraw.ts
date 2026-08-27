@@ -13,8 +13,20 @@ export interface LDrawModelOptions {
   /** Centre on x/z and sit the model on y = 0. Defaults to true. */
   ground?: boolean;
   /**
-   * Merge the loaded parts into a handful of draw calls. Large official models
-   * are hundreds of separate meshes; merging is a big win. Defaults to true.
+   * Rebuild the model as instanced draw calls, one per (part, material) pair.
+   *
+   * LDrawLoader already **shares** a single BufferGeometry between every
+   * placement of the same part, carrying the transform on the object instead.
+   * Instancing preserves that sharing: geometry is uploaded once and the
+   * placements become instance matrices. Defaults to true.
+   */
+  instanced?: boolean;
+  /**
+   * Merge the loaded parts into a handful of draw calls.
+   *
+   * Reduces draw calls the most, but **flattens the loader's shared geometry
+   * into real vertices** — measured at 9x the vertex data for 10281 and 30x for
+   * 10276 Colosseum. Prefer `instanced`. Defaults to false.
    */
   merge?: boolean;
   /** Cast/receive shadows. Defaults to true. */
@@ -25,6 +37,82 @@ export interface LDrawModelOptions {
   partsPath?: string;
   onProgress?: (loaded: number, total: number) => void;
   signal?: AbortSignal;
+}
+
+/**
+ * Rebuilds a loaded LDraw hierarchy as instanced draw calls.
+ *
+ * Placements of the same part share one BufferGeometry coming out of the
+ * loader, so grouping meshes by (geometry, material) and moving their world
+ * transforms into an instance matrix keeps the geometry single-copy on the GPU.
+ * Merging instead would flatten that sharing back into duplicated vertices.
+ *
+ * Buckets of one stay ordinary meshes — an InstancedMesh of a single instance
+ * only adds overhead.
+ */
+function toInstanced(root: THREE.Group): THREE.Group {
+  root.updateMatrixWorld(true);
+
+  interface Bucket {
+    geometry: THREE.BufferGeometry;
+    material: THREE.Material | THREE.Material[];
+    matrices: THREE.Matrix4[];
+  }
+  const buckets = new Map<string, Bucket>();
+  const lines: THREE.Object3D[] = [];
+
+  root.traverse((object) => {
+    if (object instanceof THREE.InstancedMesh) return;
+    if (object instanceof THREE.Mesh) {
+      const material = object.material;
+      const materialKey = Array.isArray(material)
+        ? material.map((entry) => entry.uuid).join("+")
+        : material.uuid;
+      const key = `${object.geometry.uuid}|${materialKey}`;
+      // World-space, so the root's LDraw y-flip is baked into the instances.
+      // Taking these relative to the root instead would silently drop it and
+      // render the whole model upside down.
+      const matrix = object.matrixWorld.clone();
+      const bucket = buckets.get(key);
+      if (bucket) bucket.matrices.push(matrix);
+      else buckets.set(key, { geometry: object.geometry, material, matrices: [matrix] });
+    } else if (object instanceof THREE.LineSegments) {
+      lines.push(object);
+    }
+  });
+
+  const out = new THREE.Group();
+  out.name = "lego-ldraw-instanced";
+
+  for (const bucket of buckets.values()) {
+    if (bucket.matrices.length === 1) {
+      const mesh = new THREE.Mesh(bucket.geometry, bucket.material);
+      mesh.applyMatrix4(bucket.matrices[0]);
+      out.add(mesh);
+      continue;
+    }
+    const mesh = new THREE.InstancedMesh(
+      bucket.geometry,
+      bucket.material as THREE.Material,
+      bucket.matrices.length,
+    );
+    bucket.matrices.forEach((matrix, index) => mesh.setMatrixAt(index, matrix));
+    mesh.instanceMatrix.needsUpdate = true;
+    // Instances are placed in the model's own space, which frustum culling
+    // against the shared geometry's bounds would get wrong.
+    mesh.frustumCulled = false;
+    out.add(mesh);
+  }
+
+  // Edges are hidden by default and cheap to keep as-is.
+  for (const line of lines) {
+    const clone = line.clone();
+    clone.applyMatrix4(line.matrixWorld);
+    clone.matrixAutoUpdate = false;
+    out.add(clone);
+  }
+
+  return out;
 }
 
 const cache = new Map<string, Promise<THREE.Group>>();
@@ -44,7 +132,8 @@ export async function loadLDrawModel(
   const {
     fitToStuds,
     ground = true,
-    merge = true,
+    instanced = true,
+    merge = false,
     shadows = true,
     edges = false,
     partsPath,
@@ -52,7 +141,7 @@ export async function loadLDrawModel(
     signal,
   } = options;
 
-  const key = `${url}|${merge}|${edges}|${partsPath ?? ""}`;
+  const key = `${url}|${instanced}|${merge}|${edges}|${partsPath ?? ""}`;
   let pending = cache.get(key);
 
   if (!pending) {
@@ -67,7 +156,13 @@ export async function loadLDrawModel(
           // LDraw is y-down; flip it to match three.js/our grid.
           group.rotation.x = Math.PI;
           group.updateMatrixWorld(true);
-          resolve(merge ? (LDrawUtils.mergeObject(group) as THREE.Group) : group);
+          if (merge) {
+            resolve(LDrawUtils.mergeObject(group) as THREE.Group);
+          } else if (instanced) {
+            resolve(toInstanced(group));
+          } else {
+            resolve(group);
+          }
         },
         (event) => onProgress?.(event.loaded, event.total),
         (error) => reject(error instanceof Error ? error : new Error(String(error))),
@@ -80,7 +175,9 @@ export async function loadLDrawModel(
   const loaded = await pending;
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  // Each consumer gets its own transformable copy of the shared parse.
+  // Each consumer gets its own transformable copy of the shared parse. Cloning
+  // an InstancedMesh shares its geometry and instance buffer, so this stays
+  // cheap.
   const model = loaded.clone(true);
   const container = new THREE.Group();
   container.name = "lego-ldraw-model";

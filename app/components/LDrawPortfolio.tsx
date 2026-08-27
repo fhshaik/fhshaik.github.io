@@ -71,7 +71,6 @@ export default function LDrawPortfolio() {
         set={set}
         theme="blossom"
         lighting="cosy"
-        baseplate={isBlossom ? 20 : 30}
         baseplateColor="dark-brown"
         sweep={{ azimuth: 130, elevation: [12, 30], zoom: [1, 1.5] }}
         parallax={4}

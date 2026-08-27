@@ -1,0 +1,21 @@
+{
+  "slug": "fountain-garden",
+  "set": "10359",
+  "title": null,
+  "author": "Orion Pobursky [OrionP]",
+  "source": "https://library.ldraw.org/library/omr/10359-1.mpd",
+  "license": "Licenced under CC BY 4.0 : see CAreadme.txt",
+  "placedParts": 1292,
+  "uniquePlacedPartReferences": 142,
+  "authoredSubmodels": 55,
+  "packedLibraryFiles": 412,
+  "missingDependencies": [
+    "3069bp0y.dat",
+    "parts/s/80674s01.dat",
+    "41835p02.dat",
+    "14719p00.dat",
+    "5904.dat",
+    "3068bp0y.dat",
+    "1613.dat"
+  ]
+}

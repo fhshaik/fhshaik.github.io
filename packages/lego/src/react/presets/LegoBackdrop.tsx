@@ -101,6 +101,17 @@ export function LegoBackdrop({
   label,
 }: LegoBackdropProps) {
   const resolved = legoSet(set);
+  // The sweep must not snapshot a camera distance until the *model* is in the
+  // scene: the baseplate alone satisfies any bounds-based readiness test, which
+  // left the camera framed for an empty plate.
+  //
+  // Recorded as "which url is loaded" rather than a boolean, so switching sets
+  // invalidates it by derivation instead of by resetting state in an effect.
+  const [readyUrl, setReadyUrl] = useState<string | null>(null);
+  const modelReady = readyUrl === resolved.url;
+
+  // A baseplate should be comfortably larger than the set standing on it.
+  const plateSize = baseplate === 0 ? 0 : Math.max(baseplate, Math.round(resolved.fitToStuds * 1.35));
 
   return (
     <div
@@ -123,25 +134,32 @@ export function LegoBackdrop({
         onPick={interactive ? onPick : undefined}
         label={label}
       >
-        {baseplate > 0 ? (
+        {plateSize > 0 ? (
           <Baseplate
-            width={baseplate}
-            depth={baseplate}
+            width={plateSize}
+            depth={plateSize}
             color={baseplateColor}
-            at={[-baseplate / 2, 0, -baseplate / 2]}
+            at={[-plateSize / 2, 0, -plateSize / 2]}
           />
         ) : null}
 
-        <LDrawModel src={resolved.url} fitToStuds={resolved.fitToStuds} at={[0, 0.5, 0]} />
+        <LDrawModel
+          src={resolved.url}
+          fitToStuds={resolved.fitToStuds}
+          at={[0, 0.5, 0]}
+          onStatusChange={(status) => setReadyUrl(status === "ready" ? resolved.url : null)}
+        />
 
         {preload && preload.length > 0 ? <Preload slugs={preload} /> : null}
 
-        <ScrollSweep
-          sweep={{ ...DEFAULT_SWEEP, ...sweep }}
-          parallax={parallax}
-          buildIn={buildIn}
-          shift={shift}
-        />
+        {modelReady ? (
+          <ScrollSweep
+            sweep={{ ...DEFAULT_SWEEP, ...sweep }}
+            parallax={parallax}
+            buildIn={buildIn}
+            shift={shift}
+          />
+        ) : null}
         {petals ? <Petals {...(typeof petals === "object" ? petals : {})} /> : null}
         {children}
       </LegoCanvas>
@@ -161,31 +179,24 @@ function ScrollSweep({
   shift: number;
 }) {
   const stage = useLegoStage();
-  const [ready, setReady] = useState(false);
+  const [framed, setFramed] = useState(false);
   const baseDistance = useRef(0);
   const pointer = useRef({ x: 0, y: 0 });
   const scroll = useRef(0);
 
-  // Wait until the model has framed the scene, then take that as the base view.
+  // Mounted only once the model is in the scene, so one frame is enough for the
+  // instanced meshes to report their real bounds.
   useEffect(() => {
     if (!stage) return;
-    let frames = 0;
-    let raf = 0;
-    const settle = () => {
-      const box = new THREE.Box3().setFromObject(stage.root);
-      if (!box.isEmpty() && box.getSize(new THREE.Vector3()).length() > 1) {
-        stage.frameAll(1.5);
-        setReady(true);
-        return;
-      }
-      if (frames++ < 600) raf = requestAnimationFrame(settle);
-    };
-    raf = requestAnimationFrame(settle);
+    const raf = requestAnimationFrame(() => {
+      stage.frameAll(1.5);
+      setFramed(true);
+    });
     return () => cancelAnimationFrame(raf);
   }, [stage]);
 
   useEffect(() => {
-    if (!stage || !ready) return;
+    if (!stage || !framed) return;
 
     const reduced =
       typeof matchMedia !== "undefined" &&
@@ -247,7 +258,7 @@ function ScrollSweep({
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("resize", apply);
     };
-  }, [stage, ready, sweep, parallax, buildIn, shift]);
+  }, [stage, framed, sweep, parallax, buildIn, shift]);
 
   return null;
 }

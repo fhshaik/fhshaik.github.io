@@ -82,6 +82,10 @@ const outputRoot = path.join(projectRoot, "public", "ldraw");
 const officialBase = "https://library.ldraw.org/library/official";
 const mirrorBase =
   "https://raw.githubusercontent.com/gkjohnson/ldraw-parts-library/master/complete/ldraw";
+// Some sets reference primitives that only exist in the unofficial library.
+const unofficialBase = "https://library.ldraw.org/library/unofficial";
+/** Dependencies nothing could supply. Recorded, not fatal. */
+const missing = new Set();
 
 async function fetchText(url) {
   const response = await fetch(url);
@@ -146,8 +150,15 @@ if (!existsSync(modelCache)) await writeFile(modelCache, source);
 
 const author = source.match(/^0 Author:\s*(.+)$/m)?.[1]?.trim() ?? "Unknown";
 const license = source.match(/^0 !LICENSE\s*(.+)$/m)?.[1]?.trim() ?? "";
-if (!/redistributable/i.test(license)) {
-  const message = `Model is not marked redistributable (licence: "${license || "none"}")`;
+/**
+ * Licences that permit redistribution. LDraw models mostly say "Redistributable
+ * under CCAL", but newer OMR submissions use Creative Commons wording instead —
+ * CC BY and CC0 are redistributable too, so matching only the word
+ * "redistributable" wrongly rejected them.
+ */
+const REDISTRIBUTABLE = /redistributable|CCAL|CC[\s-]?BY|CC0|public domain/i;
+if (!REDISTRIBUTABLE.test(license)) {
+  const message = `Model licence does not clearly permit redistribution (licence: "${license || "none"}")`;
   if (!allowUnlicensed) {
     throw new Error(`${message}. Pass --allow-unlicensed if you have the right to use it.`);
   }
@@ -214,18 +225,41 @@ function standardizedName(name) {
   return normalized;
 }
 
-async function fetchOfficial(name) {
+/**
+ * Downloads every official part the model references, transitively.
+ *
+ * A worked set pulls 250-350 part files. Fetching them one at a time is what
+ * made an import take minutes, so this runs a small worker pool over a queue
+ * that the workers themselves keep extending as they discover sub-parts. Parts
+ * are cached on disk and shared across imports, so later sets get faster still.
+ */
+const CONCURRENCY = 12;
+const queue = [];
+const queued = new Set();
+
+function enqueue(name) {
   const sectionName = standardizedName(name);
-  if (sections.has(sectionName) || fetched.has(sectionName)) return;
+  if (sections.has(sectionName) || queued.has(sectionName)) return;
+  queued.add(sectionName);
+  queue.push(sectionName);
+}
+
+async function fetchOne(sectionName) {
   const diskPath = path.join(projectRoot, ".cache-ldraw", "files", ...sectionName.split("/"));
   let text = existsSync(diskPath) ? await readFile(diskPath, "utf8") : null;
+
   if (!text) {
     const candidates =
       sectionName.startsWith("parts/") || sectionName.startsWith("p/")
         ? [sectionName]
         : [`parts/${sectionName}`, `p/${sectionName}`];
     for (const candidate of candidates) {
-      for (const url of [`${officialBase}/${candidate}`, `${mirrorBase}/${candidate}`]) {
+      const urls = [
+        `${officialBase}/${candidate}`,
+        `${mirrorBase}/${candidate}`,
+        `${unofficialBase}/${candidate}`,
+      ];
+      for (const url of urls) {
         const response = await fetch(url);
         if (response.ok) {
           text = await response.text();
@@ -237,16 +271,51 @@ async function fetchOfficial(name) {
       if (text) break;
     }
   }
-  if (!text) throw new Error(`Official LDraw dependency not found: ${name}`);
+
+  if (!text) {
+    // A single unavailable primitive should not sink a whole set: the loader
+    // skips the reference and the rest of the model still renders. Recorded in
+    // the report so it is visible rather than silent.
+    missing.add(sectionName);
+    return;
+  }
   text = text.replaceAll("\\", "/");
   fetched.set(sectionName, text);
-  for (const dependency of references(text.split(/\r?\n/))) await fetchOfficial(dependency);
+  for (const dependency of references(text.split(/\r?\n/))) enqueue(dependency);
 }
 
 for (const lines of sections.values()) {
-  for (const reference of references(lines)) {
-    if (!sections.has(reference)) await fetchOfficial(reference);
+  for (const reference of references(lines)) enqueue(reference);
+}
+
+let active = 0;
+let done = 0;
+async function worker() {
+  for (;;) {
+    const next = queue.shift();
+    if (next === undefined) {
+      // Another worker may still be about to enqueue sub-parts.
+      if (active === 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      continue;
+    }
+    active += 1;
+    try {
+      await fetchOne(next);
+      done += 1;
+      if (done % 50 === 0) process.stdout.write(`  ${done} parts…\n`);
+    } finally {
+      active -= 1;
+    }
   }
+}
+
+await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+console.log(`  ${fetched.size} part files packed`);
+if (missing.size > 0) {
+  console.warn(
+    `  warning: ${missing.size} dependency(ies) unavailable and skipped: ${[...missing].slice(0, 6).join(", ")}${missing.size > 6 ? ", …" : ""}`,
+  );
 }
 
 let colorConfig = existsSync(colorCache) ? await readFile(colorCache, "utf8") : null;
@@ -276,11 +345,12 @@ const report = {
   author,
   source: modelUrl,
   license: license || null,
-  unlicensed: !/redistributable/i.test(license) || undefined,
+  unlicensed: !REDISTRIBUTABLE.test(license) || undefined,
   placedParts: placed.count,
   uniquePlacedPartReferences: placed.ids.size,
   authoredSubmodels: [...sections.keys()].filter((name) => isModelSection(name, sections.get(name))).length,
   packedLibraryFiles: fetched.size,
+  missingDependencies: missing.size > 0 ? [...missing] : undefined,
 };
 await writeFile(path.join(outputRoot, `${slug}-report.json`), `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report, null, 2));

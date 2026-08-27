@@ -20,10 +20,14 @@ describe("set catalogue", () => {
 
   it("credits an author and a redistributable licence for every set", () => {
     // The builds are other people's design work; the catalogue must say so.
+    // Newer OMR submissions use Creative Commons wording rather than the older
+    // "Redistributable under CCAL" phrasing, and CC BY / CC0 permit
+    // redistribution just as well.
+    const redistributable = /redistributable|CCAL|CC[\s-]?BY|CC0|public domain/i;
     for (const set of LEGO_SET_LIST) {
       expect(set.author, set.slug).toBeTruthy();
       expect(set.author, set.slug).not.toMatch(/unknown/i);
-      expect(set.license, set.slug).toMatch(/redistributable/i);
+      expect(set.license, set.slug).toMatch(redistributable);
       expect(set.source, set.slug).toMatch(/^https:\/\/library\.ldraw\.org\//);
     }
   });

@@ -1,0 +1,17 @@
+{
+  "slug": "tranquil-garden",
+  "set": "10315",
+  "title": null,
+  "author": "Orion Pobursky [OrionP]",
+  "source": "https://library.ldraw.org/library/omr/10315-1.mpd",
+  "license": "Redistributable under CCAL version 4.0 : see CAreadme.txt",
+  "placedParts": 1341,
+  "uniquePlacedPartReferences": 153,
+  "authoredSubmodels": 46,
+  "packedLibraryFiles": 509,
+  "missingDependencies": [
+    "parts/s/7904s01.dat",
+    "3-4ring10.dat",
+    "parts/s/2682as01.dat"
+  ]
+}
