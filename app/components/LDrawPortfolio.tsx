@@ -25,37 +25,50 @@ const WORK = [
     accent: "medium-azure" as const,
     year: "2026",
     title: "Ant Geometer",
-    meta: "A benchmark for discovering global geometry from local observations.",
+    meta:
+      "An RL environment testing whether LLM agents can infer hidden geometric structure through active exploration, across 11 manifolds and quotient spaces. The 132-task held-out benchmark scores frontier agents on recovering geometry from partial observations — Claude Opus 5 reached 0.48/1.00.",
     href: "https://github.com/fhshaik/ant-geometer",
   },
   {
     accent: "red" as const,
-    year: "2024",
-    title: "Dark Matter Lensing CNN",
-    meta: "A ray tracer for gravitational lensing, then a CNN trained to 95% detection accuracy.",
-    href: "https://github.com/fhshaik/Dark-Matter-Lensing-CNN",
-  },
-  {
-    accent: "sand-green" as const,
     year: "2026",
-    title: "Spacetime Garden",
-    meta: "A simulation sandbox for relativistic geometry.",
-    href: "https://github.com/fhshaik/spacetime-garden",
+    title: "Autonomous Drone Racing",
+    meta:
+      "Anduril AI Grand Prix. A PPO policy trained in Isaac Sim/Pegasus for autonomous gate navigation with dynamics randomisation, plus a U-Net gate-segmentation model at 91% IoU feeding OpenCV PnP pose estimation and an EKF for closed-loop control.",
+    href: "https://github.com/fhshaik/drone-gate-rl",
   },
   {
     accent: "bright-light-orange" as const,
     year: "2026",
-    title: "Drone Gate RL",
-    meta: "Training a quadrotor to race physical gates with PyBullet and reinforcement learning.",
-    href: "https://github.com/fhshaik/drone-gate-rl",
+    title: "Aglow",
+    meta:
+      "A social app with on-device ML: production recommendation and moderation systems built on WALS, ExecuTorch, CoreML and XNNPACK, serving 30K ranked recommendations across 600 users.",
+  },
+];
+
+const RESEARCH = [
+  {
+    accent: "sand-green" as const,
+    year: "PNAS Nexus · 2026",
+    title: "Diffusive buckling fronts in lattice-based metamaterials",
+    meta:
+      "Jochem G. Meijer, Faadil H. Shaik, Victoria V. McDermott and Heinrich M. Jaeger. Oxford University Press.",
+    href: "https://academic.oup.com/pnasnexus",
   },
 ];
 
 const EXPERIENCE = [
-  ["Security engineering", "Alaris"],
-  ["Scientific ML", "Benchmarks & simulation"],
-  ["Graphics", "Ray tracers, relativistic rendering"],
-  ["Infrastructure", "Terraform, Kubernetes, Cloudflare"],
+  ["AI Engineer", "Alaris Security · 2025–present"],
+  ["Undergraduate Researcher", "Jaeger Lab, University of Chicago · 2025"],
+  ["B.S. Physics & Computer Science", "University of San Francisco · 2026"],
+  ["Minors", "Astrophysics and Mathematics"],
+];
+
+const HONOURS = [
+  ["3.98 / 4.00", "GPA, summa cum laude"],
+  ["Dean's Medal of Excellence", "University of San Francisco"],
+  ["23", "Putnam score"],
+  ["5×", "Hackathon winner"],
 ];
 
 export default function LDrawPortfolio() {
@@ -140,6 +153,12 @@ export default function LDrawPortfolio() {
                 {item}
               </a>
             ))}
+            <a href="https://github.com/fhshaik" target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+            <a href="https://linkedin.com/in/faadil-shaik" target="_blank" rel="noreferrer">
+              LinkedIn
+            </a>
             <a href="/lego">Library</a>
           </nav>
         </header>
@@ -157,12 +176,10 @@ export default function LDrawPortfolio() {
           </h1>
           <Reveal delay={0.5}>
             <p className="world__lede">
-              I work on simulation, scientific machine learning, and the infrastructure that
-              makes both reproducible. Behind this page:{" "}
-              <strong>
-                {current.setNumber} {current.title}
-              </strong>
-              , rendered from the LDraw model authored by {current.author}.
+              Physics and computer science at the University of San Francisco, graduating 2026.
+              I build <strong>AI agents at Alaris Security</strong>, and I derived the continuum
+              theory behind a{" "}
+              <strong>PNAS Nexus paper on buckling fronts in metamaterials</strong>.
             </p>
           </Reveal>
           <Reveal className="world__actions" delay={0.6}>
@@ -188,12 +205,13 @@ export default function LDrawPortfolio() {
             <Divider>Work</Divider>
           </Reveal>
           <Reveal delay={0.05}>
-            <h2 className="world__heading">Four things worth reading the code of</h2>
+            <h2 className="world__heading">Things worth reading the code of</h2>
           </Reveal>
           <div className="world__grid">
             {WORK.map((entry, index) => (
               <Reveal key={entry.title} delay={0.05 * index}>
                 <Plate
+                  studs={0}
                   accent={entry.accent}
                   eyebrow={entry.year}
                   title={entry.title}
@@ -211,26 +229,67 @@ export default function LDrawPortfolio() {
             <Divider>Research</Divider>
           </Reveal>
           <Reveal delay={0.05}>
-            <h2 className="world__heading">Honest baselines over impressive demos</h2>
+            <h2 className="world__heading">Elastic metamaterials, and how they buckle</h2>
           </Reveal>
           <Reveal delay={0.1}>
             <p className="world__prose">
-              Most of my research work is about making claims checkable: reproducible experiment
-              infrastructure, benchmarks with real baselines, and simulations whose failure modes
-              are written down rather than cropped out.
+              At the Jaeger Lab in Chicago I developed an analytical theory of diffusive buckling
+              fronts in elastic metamaterials — a continuum model that explained the experimental
+              observations and predicted how the fronts propagate. It became the theoretical basis
+              of the paper below. Alongside it: Python simulations of elastic lattices,
+              physics-informed neural networks for stress–strain behaviour in composite hydrogels,
+              and OpenCV pipelines processing over 2 TB of experimental imagery to quantify
+              deformation.
             </p>
           </Reveal>
+          <div className="world__grid">
+            {RESEARCH.map((entry) => (
+              <Reveal key={entry.title} delay={0.14}>
+                <Plate
+                  studs={0}
+                  accent={entry.accent}
+                  eyebrow={entry.year}
+                  title={entry.title}
+                  meta={entry.meta}
+                  href={entry.href}
+                  external
+                />
+              </Reveal>
+            ))}
+          </div>
         </section>
 
         <section className="world__section" id="experience">
           <Reveal>
             <Divider>Experience</Divider>
           </Reveal>
-          <Reveal className="world__specs" delay={0.08}>
+          <Reveal delay={0.05}>
+            <h2 className="world__heading">Agents that triage real alerts</h2>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p className="world__prose">
+              At Alaris I shipped a provider-agnostic agent framework for autonomous alert triage,
+              handling tens of thousands of alerts a day across production tenants with tool
+              orchestration and long-running workflows. An evaluation framework tests architecture
+              changes before they deploy — one found a change that cut LLM inference cost per alert
+              by 80%. I fine-tuned an 8B Llama-Nemotron on 478 production traces to 81% agreement
+              with human analyst decisions, and built next-best-action recommendations across 78
+              integrations that cut average triage time per alert by 25%.
+            </p>
+          </Reveal>
+          <Reveal className="world__specs" delay={0.14}>
             {EXPERIENCE.map(([role, place]) => (
               <div className="world__spec" key={role}>
                 <strong>{role}</strong>
                 <span>{place}</span>
+              </div>
+            ))}
+          </Reveal>
+          <Reveal className="world__specs" delay={0.18}>
+            {HONOURS.map(([value, label]) => (
+              <div className="world__spec" key={label}>
+                <strong>{value}</strong>
+                <span>{label}</span>
               </div>
             ))}
           </Reveal>
