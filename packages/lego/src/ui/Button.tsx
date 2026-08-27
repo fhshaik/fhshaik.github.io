@@ -7,6 +7,11 @@ type Variant = "default" | "accent" | "quiet";
 
 interface Common {
   children?: ReactNode;
+  /**
+   * Studs along the top edge, spread across the full width — so the control
+   * reads as a brick seen from its long side. 3 by default; 0 removes them.
+   */
+  studs?: number;
   /** Override the accent used for the hover underline / fill. */
   accent?: UiColor;
   variant?: Variant;
@@ -27,8 +32,9 @@ export type LegoLinkProps = Base & { href: string } &
 /**
  * The primary control.
  *
- * Flat, hairline-edged, uppercase and tracked — with two 3px studs on the top
- * edge as the only literal LEGO detail. The brick feeling comes from the press:
+ * A brick seen from its long side: flat face, hairline edge, and three studs
+ * spaced evenly across the top the way a 2x3 carries them. The rest of the brick
+ * feeling comes from the press:
  * it drops 2px in 80ms and springs back over 500ms, the way a brick seats onto
  * a stud.
  *
@@ -42,11 +48,21 @@ export function Button(props: LegoButtonProps | LegoLinkProps) {
     accent,
     variant = "default",
     pressed,
+    studs = 3,
     className,
     style,
     href,
     ...rest
   } = props as Base & Record<string, unknown>;
+
+  const cap =
+    studs > 0 ? (
+      <span className="lego-button__studs" aria-hidden="true">
+        {Array.from({ length: studs }, (_, index) => (
+          <i key={index} />
+        ))}
+      </span>
+    ) : null;
 
   const shared = {
     className: ["lego-button", className].filter(Boolean).join(" "),
@@ -60,6 +76,7 @@ export function Button(props: LegoButtonProps | LegoLinkProps) {
   if (typeof href === "string") {
     return (
       <a href={href} {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)} {...shared}>
+        {cap}
         {children}
       </a>
     );
@@ -73,6 +90,7 @@ export function Button(props: LegoButtonProps | LegoLinkProps) {
       {...buttonProps}
       {...shared}
     >
+      {cap}
       {children}
     </button>
   );

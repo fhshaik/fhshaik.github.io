@@ -29,6 +29,7 @@
 
 .lego-button {
   --lego-button-accent: var(--lego-accent);
+  --lego-button-face: var(--lego-raised);
 
   position: relative;
   display: inline-flex;
@@ -55,21 +56,47 @@
 }
 
 /*
- * Two studs on the top edge: a 3px detail, the same colour as the border, that
- * only reads as LEGO once you look. Not a bump.
+ * Studs on the top edge, centred.
+ *
+ * Real elements rather than a pseudo-element: two rounded domes need two shapes,
+ * and an earlier gradient version clipped to flat-topped nubs with a notch
+ * between them. ::after is already the hover underline, so there was no second
+ * pseudo-element to use.
  */
-.lego-button::before {
-  content: "";
+/*
+ * Each stud gets an equal cell across the width, and the dome is sized as a
+ * fraction of its cell — so the proportions hold at any button width, which
+ * fixed-pixel studs cannot do when the label length sets the width.
+ *
+ * The fractions are the real ones: a stud is 12 LDU across a 20 LDU pitch (60%),
+ * and stands 4 LDU proud, so it is a third as tall as it is wide. Seen from this
+ * angle it is a rectangle — see the shape note below.
+ */
+.lego-button__studs {
   position: absolute;
-  top: -3px;
-  left: 1.5em;
-  width: 22px;
-  height: 3px;
-  border: 1px solid var(--lego-line);
-  border-bottom: 0;
-  border-radius: 3px 3px 0 0;
-  background: var(--lego-raised);
-  transition: border-color var(--lego-duration) var(--lego-ease-glide);
+  inset-inline: 0;
+  bottom: 100%;
+  display: flex;
+  pointer-events: none;
+}
+
+.lego-button__studs i {
+  flex: 1;
+  display: grid;
+  place-items: end center;
+}
+
+.lego-button__studs i::before {
+  content: "";
+  width: 60%;
+  aspect-ratio: 3 / 1;
+  /*
+   * A rectangle, not a dome. Seen from the side a stud is a cylinder edge-on, so
+   * its silhouette is square with only a small fillet on the moulded top edge —
+   * a half-circle would be the view from above.
+   */
+  border-radius: 1.5px 1.5px 0 0;
+  background: var(--lego-button-face, var(--lego-raised));
 }
 
 /* The accent arrives as a drawn underline, not a fill. */
@@ -90,10 +117,6 @@
 .lego-button:focus-visible {
   border-color: color-mix(in srgb, var(--lego-ink) 30%, transparent);
 }
-.lego-button:hover:not(:disabled)::before,
-.lego-button:focus-visible::before {
-  border-color: color-mix(in srgb, var(--lego-ink) 30%, transparent);
-}
 .lego-button:hover:not(:disabled)::after,
 .lego-button:focus-visible::after {
   transform: scaleX(1);
@@ -107,13 +130,10 @@
 }
 
 .lego-button[data-variant="accent"] {
+  --lego-button-face: var(--lego-accent);
   background: var(--lego-accent);
   border-color: var(--lego-accent);
   color: var(--lego-accent-ink);
-}
-.lego-button[data-variant="accent"]::before {
-  background: var(--lego-accent);
-  border-color: var(--lego-accent);
 }
 .lego-button[data-variant="accent"]::after { background: var(--lego-accent-ink); }
 
