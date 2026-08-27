@@ -64,10 +64,19 @@ export interface LegoSet {
      */
     pan?: { travel?: number; distance?: number; rise?: number };
   };
+  /**
+   * Named places within the set, for a scroll-driven tour.
+   *
+   * `focus` is normalised inside the model's bounding box — x from its left
+   * edge to its right, y from its base to its top — so a region survives the
+   * set being rescaled or reframed. `distance` is a fraction of the model's
+   * largest dimension: smaller means closer in.
+   */
+  regions?: Record<string, { focus: [number, number]; distance: number; label?: string }>;
   /** Theme this set brings with it, so each build sets its own mood. */
   theme?: LegoThemeName;
   /** Lighting that suits the set. */
-  lighting?: "studio" | "cosy";
+  lighting?: "studio" | "cosy" | "night";
 }
 
 export const LEGO_SETS = {
@@ -93,8 +102,18 @@ export const LEGO_SETS = {
       baseplate: false,
       pan: { travel: 0.62, distance: 0.42, rise: 0.16 },
     },
+    regions: {
+      // Coordinates read off the authored build: the cypress stands left of
+      // centre, the swirls fill the upper middle, the village sits low right.
+      overview: { focus: [0.5, 0.55], distance: 0.78, label: "The whole canvas" },
+      cypress: { focus: [0.34, 0.46], distance: 0.44, label: "The cypress" },
+      swirls: { focus: [0.58, 0.7], distance: 0.46, label: "The swirling sky" },
+      moon: { focus: [0.84, 0.74], distance: 0.4, label: "The crescent moon" },
+      village: { focus: [0.7, 0.28], distance: 0.44, label: "The village" },
+      easel: { focus: [0.9, 0.24], distance: 0.38, label: "Vincent at his easel" },
+    },
     theme: "starry",
-    lighting: "cosy",
+    lighting: "night",
   },
   "cherry-blossoms": {
     slug: "cherry-blossoms",

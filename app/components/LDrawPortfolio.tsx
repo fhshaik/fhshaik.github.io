@@ -4,22 +4,21 @@ import { useState } from "react";
 import { LegoBackdrop } from "@fhshaik/lego/react";
 import { legoSet } from "@fhshaik/lego/core";
 import { Button, Divider, Lines, Plate, Reveal, StudMark } from "@fhshaik/lego/ui";
-import { useSectionSet } from "../useSectionSet";
 import { useEffect } from "react";
 
 const NAV = ["Work", "Research", "Experience"] as const;
 
 /**
- * Each section names the set that stands behind it. The backdrop follows the
- * scroll, so the page moves through a few different builds rather than staring
- * at one for its whole length.
+ * One set, toured. Each section is pinned to a place inside the painting, so
+ * scrolling moves through 21333 rather than cutting between different builds.
  */
-const SECTION_SETS: Record<string, string> = {
-  top: "starry-night",
-  work: "san-francisco",
-  research: "cherry-blossoms",
-  experience: "tranquil-garden",
-};
+const TOUR = [
+  { section: "top", region: "overview" },
+  { section: "work", region: "village" },
+  { section: "research", region: "swirls" },
+  { section: "experience", region: "cypress" },
+  { section: "credits", region: "easel" },
+] as const;
 
 const WORK = [
   {
@@ -63,10 +62,7 @@ export default function LDrawPortfolio() {
   const [active, setActive] = useState<string>("Work");
   const bonsai = legoSet("cherry-blossoms");
 
-  const set = useSectionSet(SECTION_SETS, "starry-night");
-  const isBlossom = set === "cherry-blossoms";
-  // Name whatever is currently standing behind the page, and credit its author.
-  const current = legoSet(set);
+  const current = legoSet("starry-night");
 
   // Each set brings its own mood: switching the root attribute repaints the
   // whole page palette, and globals.css transitions the colours so it reads as
@@ -78,17 +74,17 @@ export default function LDrawPortfolio() {
   return (
     <>
       <LegoBackdrop
-        set={set}
-        baseplateColor="dark-brown"
-        sweep={{ azimuth: 130, elevation: [12, 30], zoom: [1, 1.5] }}
-        parallax={4}
-        shift={0.22}
-        petals={
-          isBlossom
-            ? { count: 130, area: 52, height: 34, speed: 0.95, sway: 2.1, size: 0.5 }
-            : false
-        }
-        preload={["san-francisco", "cherry-blossoms"]}
+        set="starry-night"
+        tour={TOUR}
+        parallax={3}
+        shift={0.2}
+        exposure={0.78}
+        // Gentle, and only above a high threshold: the stars should glow, not
+        // the whole canvas.
+        bloom={{ strength: 0.28, radius: 0.5, threshold: 0.9 }}
+        // Yellow only. Glowing the white parts lit the entire sky, because the
+        // swirls are mostly white.
+        glow={{ colors: ["yellow"], intensity: 0.85, twinkle: 0.3 }}
       />
 
       <div className="world">
@@ -204,7 +200,7 @@ export default function LDrawPortfolio() {
           </Reveal>
         </section>
 
-        <footer className="world__footer">
+        <footer className="world__footer" id="credits">
           <Reveal>
             <p>
               LEGO set {bonsai.setNumber} model by {bonsai.author}, redistributed under CCAL 2.0

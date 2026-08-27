@@ -48,6 +48,42 @@ body {
 
 ::selection { background: var(--lego-accent); color: var(--lego-accent-ink); }
 
+/*
+ * A scrim behind the text column.
+ *
+ * Content sits over a painting, and a painting has bright passages — the copy
+ * was unreadable wherever the sky was pale. This is a soft horizontal gradient
+ * fixed to the left of the viewport: heavy enough to hold text, transparent
+ * before it reaches the subject, and it never shows an edge.
+ */
+.world::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 0 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    var(--lego-surface) 0%,
+    color-mix(in srgb, var(--lego-surface) 92%, transparent) 26%,
+    color-mix(in srgb, var(--lego-surface) 55%, transparent) 42%,
+    transparent 62%
+  );
+  transition: background 900ms var(--lego-ease-glide);
+}
+
+@media (max-width: 900px) {
+  /* On narrow screens the copy sits over the middle of the scene. */
+  .world::before {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--lego-surface) 88%, transparent) 0%,
+      color-mix(in srgb, var(--lego-surface) 70%, transparent) 55%,
+      color-mix(in srgb, var(--lego-surface) 92%, transparent) 100%
+    );
+  }
+}
+
 /* --- the world: content floating over the scene ------------------------- */
 
 .world {

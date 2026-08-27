@@ -20,4 +20,5 @@ export {
 } from "./bricks";
 export { LDrawModel, type LDrawModelProps, type LDrawStatus } from "./LDrawModel";
 export { Petals, type PetalsProps } from "./Petals";
+export { Glow, type GlowProps } from "./Glow";
 export { LegoBackdrop, type LegoBackdropProps } from "./presets/LegoBackdrop";

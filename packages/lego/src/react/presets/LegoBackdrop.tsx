@@ -11,13 +11,16 @@ import type { PetalsProps } from "../Petals";
 import { LDrawModel } from "../LDrawModel";
 import { Baseplate } from "../bricks";
 import { Petals } from "../Petals";
+import { Glow } from "../Glow";
 import { useLegoStage } from "../context";
 
 export interface LegoBackdropProps {
   /** Official set to place in the world. */
   set?: LegoSetSlug | string;
   theme?: LegoThemeName;
-  lighting?: "cosy" | "studio";
+  lighting?: "cosy" | "studio" | "night";
+  /** Tone-mapping exposure. Below 1 darkens. */
+  exposure?: number;
   /** Studded baseplate under the set. Set to 0 to omit it. */
   baseplate?: number;
   baseplateColor?: string;
@@ -50,11 +53,24 @@ export interface LegoBackdropProps {
   petals?: boolean | PetalsProps;
   /** Atmospheric depth. Defaults to true. */
   fog?: boolean;
+  /** Bright surfaces bleed light. Costs a full-screen pass. */
+  bloom?: boolean | { strength?: number; radius?: number; threshold?: number };
+  /** LEGO colours that should emit light, with an optional twinkle. */
+  glow?: readonly string[] | { colors: readonly string[]; intensity?: number; twinkle?: number };
   /**
    * Other sets to parse in the background, so switching to one is instant.
    * Warmed after the current set is on screen, on an idle callback.
    */
   preload?: readonly (LegoSetSlug | string)[];
+  /**
+   * A scroll-driven tour: each entry pins a section of the page to a named
+   * region of the set. The camera eases from one region to the next in step
+   * with the actual scroll position, so a heading and the place it talks about
+   * arrive together.
+   *
+   * Takes precedence over `sweep` when the set defines matching regions.
+   */
+  tour?: readonly { section: string; region: string }[];
   onPick?: (event: LegoPickEvent | null) => void;
   /** Let pointer events reach the scene. Off by default so the page scrolls. */
   interactive?: boolean;
@@ -91,7 +107,11 @@ export function LegoBackdrop({
   buildIn = true,
   petals = false,
   fog = true,
+  exposure,
+  bloom = false,
+  glow,
   preload,
+  tour,
   shift = 0.2,
   onPick,
   interactive = false,
@@ -149,6 +169,8 @@ export function LegoBackdrop({
         orbit={false}
         autoFrame
         fog={fog}
+        exposure={exposure}
+        bloom={bloom}
         onPick={interactive ? onPick : undefined}
         label={label}
       >
@@ -176,12 +198,19 @@ export function LegoBackdrop({
             startAzimuth={startAzimuth}
             mode={mode}
             pan={pan}
+            tour={tour}
+            regions={resolved.regions}
             parallax={parallax}
             buildIn={buildIn}
             shift={shift}
           />
         ) : null}
         {petals ? <Petals {...(typeof petals === "object" ? petals : {})} /> : null}
+        {glow && modelReady ? (
+          <Glow
+            {...(Array.isArray(glow) ? { colors: glow } : (glow as { colors: readonly string[] }))}
+          />
+        ) : null}
         {children}
       </LegoCanvas>
     </div>
@@ -196,6 +225,8 @@ function ScrollSweep({
   startAzimuth,
   mode,
   pan,
+  tour,
+  regions,
 }: {
   sweep: typeof DEFAULT_SWEEP;
   parallax: number;
@@ -204,6 +235,8 @@ function ScrollSweep({
   startAzimuth: number;
   mode: "orbit" | "pan";
   pan?: { travel?: number; distance?: number; rise?: number };
+  tour?: readonly { section: string; region: string }[];
+  regions?: Record<string, { focus: [number, number]; distance: number; label?: string }>;
 }) {
   const stage = useLegoStage();
   const [framed, setFramed] = useState(false);
@@ -258,6 +291,69 @@ function ScrollSweep({
           (reduced ? 0 : pointer.current.y * parallax * 0.5)) *
           Math.PI) /
         180;
+
+      // A tour wins when the set actually defines the regions it names.
+      const stops =
+        tour
+          ?.map((entry) => ({ ...entry, place: regions?.[entry.region] }))
+          .filter((entry): entry is typeof entry & { place: NonNullable<typeof entry.place> } =>
+            Boolean(entry.place),
+          ) ?? [];
+
+      if (stops.length > 0) {
+        const measured = stops.map((stop) => {
+          const element = document.getElementById(stop.section);
+          // Centre of the section, in document coordinates.
+          const top = element
+            ? element.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.35
+            : 0;
+          return { ...stop, top };
+        });
+
+        const here = window.scrollY;
+        let from = measured[0];
+        let to = measured[0];
+        let t = 0;
+        for (let index = 0; index < measured.length - 1; index += 1) {
+          if (here >= measured[index].top) {
+            from = measured[index];
+            to = measured[index + 1];
+            const span = Math.max(to.top - from.top, 1);
+            t = Math.min(1, Math.max(0, (here - from.top) / span));
+          }
+        }
+        if (here < measured[0].top) {
+          from = measured[0];
+          to = measured[0];
+          t = 0;
+        }
+
+        // Smoothstep between stops, so arriving at a region settles rather
+        // than stopping dead.
+        const eased = t * t * (3 - 2 * t);
+        const lerp = (a: number, b: number) => a + (b - a) * eased;
+
+        const focusX = lerp(from.place.focus[0], to.place.focus[0]);
+        const focusY = lerp(from.place.focus[1], to.place.focus[1]);
+        const closeness = lerp(from.place.distance, to.place.distance);
+
+        const focus = new THREE.Vector3(
+          box.min.x + extent.x * focusX,
+          box.min.y + extent.y * focusY,
+          center.z,
+        );
+
+        stage.setView(
+          {
+            azimuth,
+            elevation,
+            distance: Math.max(extent.x, extent.y) * closeness,
+            target: focus,
+          },
+          { immediate: reduced },
+        );
+        return;
+      }
 
       if (mode === "pan") {
         // Inside the frame: hold the camera close and facing, and slide the
@@ -315,7 +411,7 @@ function ScrollSweep({
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("resize", apply);
     };
-  }, [stage, framed, sweep, parallax, buildIn, shift, startAzimuth, mode, pan]);
+  }, [stage, framed, sweep, parallax, buildIn, shift, startAzimuth, mode, pan, tour, regions]);
 
   return null;
 }

@@ -1,9 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { STUDIO_THEME, type LegoTheme } from "../tokens/theme";
 import { partGeometry } from "./geometry";
-import { ghostMaterial, partMaterial } from "./materials";
+import { ghostMaterial, partMaterial, toLegoColor, type ColorInput } from "./materials";
 import { placementMatrix, resolveBrick, type BrickPlacement, type ResolvedBrick } from "./brick";
 
 /** Camera placement in orbit terms, used by {@link LegoStage.setView}. */
@@ -78,12 +82,25 @@ export interface LegoStageOptions {
    * `"studio"` is crisp and neutral; `"cosy"` is warmer and softer, with a
    * gentler key-to-fill ratio.
    */
-  lighting?: "studio" | "cosy";
+  lighting?: "studio" | "cosy" | "night";
+  /**
+   * Tone-mapping exposure. Below 1 darkens — a night scene needs about 0.8, or
+   * the key light flattens the painting into glare.
+   */
+  exposure?: number;
   /**
    * Atmospheric depth — distant parts fade into the background colour. Range is
    * derived from the framed distance, so it works at any scene scale.
    */
   fog?: boolean;
+  /**
+   * Bloom: bright surfaces bleed light into their surroundings.
+   *
+   * Renders through an EffectComposer, so it costs a full-screen pass — worth it
+   * where the subject has emissive detail (the stars in 21333), wasteful
+   * otherwise. `strength` around 0.5 reads as glow; above 1 it hazes over.
+   */
+  bloom?: boolean | { strength?: number; radius?: number; threshold?: number };
   /** Slow turntable spin, in degrees per second. 0 disables it. */
   autoRotate?: number;
   cameraPosition?: [number, number, number];
@@ -147,6 +164,8 @@ export class LegoStage {
   private readonly hoverListeners = new Set<Listener<LegoPickEvent | null>>();
 
   private environmentTexture?: THREE.Texture;
+  private composer?: EffectComposer;
+  private bloomPass?: UnrealBloomPass;
   private ground?: THREE.Mesh;
   private frame = 0;
   private dirty = true;
@@ -170,7 +189,9 @@ export class LegoStage {
       orbit: options.orbit ?? true,
       isometric: options.isometric ?? false,
       lighting: options.lighting ?? "studio",
+      exposure: options.exposure ?? 1,
       fog: options.fog ?? false,
+      bloom: options.bloom ?? false,
       autoRotate: options.autoRotate ?? 0,
       cameraPosition:
         options.cameraPosition ?? (options.isometric ? [40, 34, 40] : [14, 11, 16]),
@@ -183,7 +204,7 @@ export class LegoStage {
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, this.options.maxPixelRatio));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.1 * (options.exposure ?? 1);
     this.renderer.shadowMap.enabled = this.options.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.domElement.setAttribute("aria-hidden", "true");
@@ -225,6 +246,7 @@ export class LegoStage {
       this.camera.lookAt(new THREE.Vector3(...this.options.cameraTarget));
     }
 
+    this.setupBloom();
     this.observeResize();
     this.bindPointer();
     this.resize();
@@ -234,17 +256,24 @@ export class LegoStage {
   // --- lighting -----------------------------------------------------------
 
   private setupLighting(): void {
-    const cosy = this.options.lighting === "cosy";
+    const mood = this.options.lighting;
+    const cosy = mood === "cosy";
+    const night = mood === "night";
 
     this.scene.add(
       new THREE.HemisphereLight(
-        cosy ? 0xfff2e0 : 0xffffff,
-        cosy ? 0x8a7563 : 0x6f6357,
-        cosy ? 2.1 : 1.6,
+        night ? 0x93a4d8 : cosy ? 0xfff2e0 : 0xffffff,
+        night ? 0x1a2038 : cosy ? 0x8a7563 : 0x6f6357,
+        // A night scene wants most of its light to come from the glowing parts,
+        // not from ambient fill.
+        night ? 0.55 : cosy ? 2.1 : 1.6,
       ),
     );
 
-    const key = new THREE.DirectionalLight(cosy ? 0xffe6bd : 0xfff3dd, cosy ? 2.1 : 2.6);
+    const key = new THREE.DirectionalLight(
+      night ? 0xc8d4ff : cosy ? 0xffe6bd : 0xfff3dd,
+      night ? 0.85 : cosy ? 2.1 : 2.6,
+    );
     key.position.set(-9, 15, 9);
     key.castShadow = this.options.shadows;
     key.shadow.mapSize.set(2048, 2048);
@@ -260,18 +289,21 @@ export class LegoStage {
     shadowCamera.updateProjectionMatrix();
     this.scene.add(key);
 
-    const fill = new THREE.DirectionalLight(cosy ? 0xffd9e8 : 0xdfe9ff, cosy ? 1.0 : 0.7);
+    const fill = new THREE.DirectionalLight(
+      night ? 0x6f80c0 : cosy ? 0xffd9e8 : 0xdfe9ff,
+      night ? 0.35 : cosy ? 1.0 : 0.7,
+    );
     fill.position.set(8, 6, -10);
     this.scene.add(fill);
 
-    if (cosy) this.renderer.toneMappingExposure = 1.2;
+    if (cosy) this.renderer.toneMappingExposure = 1.2 * this.options.exposure;
 
     if (this.options.environment) {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       const room = new RoomEnvironment();
       this.environmentTexture = pmrem.fromScene(room, 0.05).texture;
       this.scene.environment = this.environmentTexture;
-      this.scene.environmentIntensity = 0.45;
+      this.scene.environmentIntensity = night ? 0.12 : 0.45;
       room.dispose?.();
       pmrem.dispose();
     }
@@ -289,6 +321,72 @@ export class LegoStage {
       this.ground.receiveShadow = true;
       this.scene.add(this.ground);
     }
+  }
+
+  private setupBloom(): void {
+    if (!this.options.bloom) return;
+    const settings = typeof this.options.bloom === "object" ? this.options.bloom : {};
+
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(1, 1),
+      settings.strength ?? 0.55,
+      settings.radius ?? 0.6,
+      // A high threshold keeps the glow on the genuinely bright parts — the
+      // stars — instead of hazing the whole painting.
+      settings.threshold ?? 0.72,
+    );
+    this.composer.addPass(this.bloomPass);
+    // Tone mapping and colour space conversion move to the end of the chain
+    // once a composer is in play.
+    this.composer.addPass(new OutputPass());
+  }
+
+  /**
+   * Makes parts of the given LEGO colours emit light.
+   *
+   * Matched on the material's **colour value**, not its name: a loaded LDraw
+   * model carries the loader's own materials, so name matching would only ever
+   * catch the parts this library generated.
+   *
+   * Returns the materials it touched, so a caller can animate them.
+   */
+  setGlow(colors: readonly ColorInput[], intensity = 1): THREE.MeshStandardMaterial[] {
+    const targets = colors.map((color) => new THREE.Color(toLegoColor(color).hex));
+    const touched: THREE.MeshStandardMaterial[] = [];
+    const seen = new Set<THREE.Material>();
+
+    this.scene.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.material) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const material of materials) {
+        if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+        if (seen.has(material)) continue;
+        seen.add(material);
+        // Small tolerance: the loader and this library both round sRGB values.
+        const near = targets.some(
+          (target) =>
+            Math.abs(target.r - material.color.r) < 0.04 &&
+            Math.abs(target.g - material.color.g) < 0.04 &&
+            Math.abs(target.b - material.color.b) < 0.04,
+        );
+        if (!near) continue;
+        material.emissive.copy(material.color);
+        material.emissiveIntensity = intensity;
+        material.needsUpdate = true;
+        touched.push(material);
+      }
+    });
+
+    this.markDirty();
+    return touched;
+  }
+
+  /** The bloom pass, for animating its strength. Undefined unless enabled. */
+  get bloom(): UnrealBloomPass | undefined {
+    return this.bloomPass;
   }
 
   // --- brick graph --------------------------------------------------------
@@ -836,6 +934,7 @@ export class LegoStage {
     const height = this.container.clientHeight;
     if (width === 0 || height === 0) return;
     this.renderer.setSize(width, height, false);
+    this.composer?.setSize(width, height);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.applyFrameShift();
@@ -896,7 +995,8 @@ export class LegoStage {
       }
       if (this.dirty || animating) {
         this.dirty = false;
-        this.renderer.render(this.scene, this.camera);
+        if (this.composer) this.composer.render(delta);
+        else this.renderer.render(this.scene, this.camera);
       }
     };
     this.frame = requestAnimationFrame(loop);
@@ -932,6 +1032,7 @@ export class LegoStage {
     this.ground?.geometry.dispose();
     (this.ground?.material as THREE.Material | undefined)?.dispose();
     this.environmentTexture?.dispose();
+    this.composer?.dispose();
 
     this.renderer.dispose();
     element.remove();
