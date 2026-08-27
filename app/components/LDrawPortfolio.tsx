@@ -65,10 +65,9 @@ const EXPERIENCE = [
 ];
 
 const HONOURS = [
-  ["3.98 / 4.00", "GPA, summa cum laude"],
   ["Dean's Medal of Excellence", "University of San Francisco"],
-  ["23", "Putnam score"],
-  ["5×", "Hackathon winner"],
+  ["Putnam score 23", "2025"],
+  ["Summa cum laude", "Physics & Computer Science"],
 ];
 
 export default function LDrawPortfolio() {
@@ -166,20 +165,20 @@ export default function LDrawPortfolio() {
         <section className="world__opening" id="top">
           <Reveal as="p" className="world__eyebrow">
             <StudMark size={6} />
-            Physics · Machine learning · Software
+            San Francisco · 2026
           </Reveal>
           <h1 className="world__title">
-            <Lines delay={0.15}>{["I build systems", "for curious"]}</Lines>
-            <Lines as="em" delay={0.42}>
-              worlds.
+            <Lines delay={0.15}>{["I work on"]}</Lines>
+            <Lines as="em" delay={0.34}>
+              Physics and ML
             </Lines>
           </h1>
           <Reveal delay={0.5}>
             <p className="world__lede">
               Physics and computer science at the University of San Francisco, graduating 2026.
               I build <strong>AI agents at Alaris Security</strong>, and I derived the continuum
-              theory behind a{" "}
-              <strong>PNAS Nexus paper on buckling fronts in metamaterials</strong>.
+              theory in a{" "}
+              <strong>PNAS Nexus paper on why lattice metamaterials buckle</strong>.
             </p>
           </Reveal>
           <Reveal className="world__actions" delay={0.6}>
@@ -189,7 +188,7 @@ export default function LDrawPortfolio() {
                 document.getElementById("work")?.scrollIntoView({ behavior: "smooth" })
               }
             >
-              Selected work
+              Work
             </Button>
             <span className="world__hint">
               <StudMark size={5} color="light-bluish-gray" />
@@ -203,9 +202,6 @@ export default function LDrawPortfolio() {
         <section className="world__section" id="work">
           <Reveal>
             <Divider>Work</Divider>
-          </Reveal>
-          <Reveal delay={0.05}>
-            <h2 className="world__heading">Things worth reading the code of</h2>
           </Reveal>
           <div className="world__grid">
             {WORK.map((entry, index) => (
@@ -262,9 +258,6 @@ export default function LDrawPortfolio() {
         <section className="world__section" id="experience">
           <Reveal>
             <Divider>Experience</Divider>
-          </Reveal>
-          <Reveal delay={0.05}>
-            <h2 className="world__heading">Agents that triage real alerts</h2>
           </Reveal>
           <Reveal delay={0.1}>
             <p className="world__prose">
