@@ -10,6 +10,7 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { GradeShader, type GradeOptions } from "./grade";
 import { applyPainterly, type PainterlyOptions } from "./painterly";
 import { createKuwaharaPass, type KuwaharaOptions } from "./kuwahara";
+import { createVortexPass, type VortexSpec } from "./vortex";
 import { STUDIO_THEME, type LegoTheme } from "../tokens/theme";
 import { partGeometry } from "./geometry";
 import { ghostMaterial, partMaterial, toLegoColor, type ColorInput } from "./materials";
@@ -129,6 +130,11 @@ export interface LegoStageOptions {
    * Kuwahara brushstroke filter. Expensive — see {@link createKuwaharaPass}.
    */
   brushwork?: boolean | KuwaharaOptions;
+  /**
+   * Animated swirl distortion. See {@link VortexShader} — it warps geometry
+   * edges, which suits a painting and little else.
+   */
+  vortex?: boolean;
   /** Slow turntable spin, in degrees per second. 0 disables it. */
   autoRotate?: number;
   cameraPosition?: [number, number, number];
@@ -198,6 +204,9 @@ export class LegoStage {
   private keyLight?: THREE.DirectionalLight;
   private gradePass?: ShaderPass;
   private brushworkPass?: ShaderPass;
+  private vortexPass?: ShaderPass;
+  private vortices: VortexSpec[] = [];
+  private vortexClock = 0;
   private ground?: THREE.Mesh;
   private frame = 0;
   private dirty = true;
@@ -227,6 +236,7 @@ export class LegoStage {
       ao: options.ao ?? false,
       grade: options.grade ?? false,
       brushwork: options.brushwork ?? false,
+      vortex: options.vortex ?? false,
       autoRotate: options.autoRotate ?? 0,
       cameraPosition:
         options.cameraPosition ?? (options.isometric ? [40, 34, 40] : [14, 11, 16]),
@@ -410,6 +420,43 @@ export class LegoStage {
     }
   }
 
+  /**
+   * Makes the halos breathe — swelling and fading slowly, each on its own phase.
+   *
+   * Physically motivated rather than decorative: stars twinkle, so a corona that
+   * drifts in size and brightness reads as air between you and the light. Kept
+   * shallow and slow, because anything faster reads as a flicker bug.
+   */
+  breatheHalos(options: { amount?: number; speed?: number } = {}): () => void {
+    const amount = options.amount ?? 0.16;
+    const speed = options.speed ?? 0.09;
+
+    const sprites: THREE.Sprite[] = [];
+    this.scene.traverse((object) => {
+      if (object instanceof THREE.Sprite) sprites.push(object);
+    });
+    if (sprites.length === 0) return () => {};
+
+    const baseScale = sprites.map((sprite) => sprite.scale.x);
+    const baseOpacity = sprites.map(
+      (sprite) => (sprite.material as THREE.SpriteMaterial).opacity,
+    );
+    // A fixed irrational step per sprite, so the pattern never lines up but is
+    // identical on every reload.
+    const phases = sprites.map((_, index) => (index * 2.399963) % (Math.PI * 2));
+    let elapsed = 0;
+
+    return this.addUpdater((delta) => {
+      elapsed += delta;
+      sprites.forEach((sprite, index) => {
+        const wave = Math.sin(elapsed * speed * Math.PI * 2 + phases[index]);
+        sprite.scale.setScalar(baseScale[index] * (1 + wave * amount));
+        (sprite.material as THREE.SpriteMaterial).opacity =
+          baseOpacity[index] * (1 + wave * amount * 1.4);
+      });
+    });
+  }
+
   /** Flattens the scene's materials to graphic toon shading. */
   applyPainterly(options: PainterlyOptions = {}): void {
     applyPainterly(this.scene, options);
@@ -421,13 +468,20 @@ export class LegoStage {
       !this.options.bloom &&
       !this.options.ao &&
       !this.options.grade &&
-      !this.options.brushwork
+      !this.options.brushwork &&
+      !this.options.vortex
     ) {
       return;
     }
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+    // First in the chain: everything downstream should see the warped image.
+    if (this.options.vortex) {
+      this.vortexPass = createVortexPass();
+      this.composer.addPass(this.vortexPass);
+    }
 
     if (this.options.ao) {
       const settings = typeof this.options.ao === "object" ? this.options.ao : {};
@@ -486,6 +540,64 @@ export class LegoStage {
       Math.max(this.container.clientWidth * ratio, 1),
       Math.max(this.container.clientHeight * ratio, 1),
     );
+  }
+
+  /**
+   * Sets the swirl centres, in world space.
+   *
+   * Kept as world positions rather than screen coordinates so they stay pinned
+   * to the subject: the stage reprojects them every frame, which is the only way
+   * a swirl can survive the camera moving.
+   */
+  setVortices(specs: readonly VortexSpec[]): void {
+    this.vortices = specs.slice(0, 3).map((spec) => ({ ...spec }));
+    this.markDirty();
+  }
+
+  /** Projects each swirl to screen space and updates the pass uniforms. */
+  private updateVortexUniforms(delta: number): void {
+    const pass = this.vortexPass;
+    if (!pass) return;
+
+    this.vortexClock += delta;
+    pass.uniforms.time.value = this.vortexClock;
+    pass.uniforms.aspect.value = this.camera.aspect;
+
+    const slots = ["A", "B", "C"] as const;
+    const centre = new THREE.Vector3();
+    const edge = new THREE.Vector3();
+
+    slots.forEach((slot, index) => {
+      const spec = this.vortices[index];
+      const centreUniform = pass.uniforms[`centre${slot}`].value as THREE.Vector4;
+      const paramsUniform = pass.uniforms[`params${slot}`].value as THREE.Vector3;
+
+      if (!spec) {
+        // A zero radius disables the slot in the shader.
+        centreUniform.set(0.5, 0.5, 0, 0);
+        paramsUniform.set(0, 0, 0);
+        return;
+      }
+
+      centre.copy(spec.position).project(this.camera);
+      // A second point one radius away, projected, gives the on-screen radius —
+      // so the swirl keeps its size on the canvas through a zoom.
+      edge.copy(spec.position).addScaledVector(this.cameraRight(), spec.radius).project(this.camera);
+
+      const centreUv = new THREE.Vector2((centre.x + 1) / 2, (centre.y + 1) / 2);
+      const edgeUv = new THREE.Vector2((edge.x + 1) / 2, (edge.y + 1) / 2);
+      const radiusUv = Math.abs(edgeUv.x - centreUv.x) * this.camera.aspect;
+
+      centreUniform.set(centreUv.x, centreUv.y, radiusUv, 0);
+      paramsUniform.set(spec.twist ?? 0, spec.flow ?? 0, spec.speed ?? 0.05);
+    });
+  }
+
+  private readonly rightVector = new THREE.Vector3();
+
+  /** The camera's right axis, for measuring an on-screen radius. */
+  private cameraRight(): THREE.Vector3 {
+    return this.rightVector.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
   }
 
   private addGradePass(): void {
@@ -1255,6 +1367,10 @@ export class LegoStage {
       }
       if (this.updaters.size > 0) {
         for (const update of this.updaters) update(delta);
+        animating = true;
+      }
+      if (this.vortexPass && this.vortices.length > 0) {
+        this.updateVortexUniforms(delta);
         animating = true;
       }
       if (this.dirty || animating) {

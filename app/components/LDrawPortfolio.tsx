@@ -103,6 +103,17 @@ export default function LDrawPortfolio() {
         // Kuwahara: smears within regions of colour but stops at edges, the way
         // a loaded brush does. Expensive, so the radius stays small.
         brushwork={false}
+        /*
+         * Motion is deliberately limited to the viewer and the light: the
+         * coronas breathe, and the camera sways by under a degree. Both stop
+         * under prefers-reduced-motion.
+         *
+         * No vortex. Warping the sky was tried and rejected — it reads as
+         * nauseating rather than alive, which makes sense: the eye expects a
+         * painting to hold still, and rubber-sheeting it fights that.
+         */
+        breathe={{ amount: 0.14, speed: 0.08 }}
+        drift={1}
         bloom={{ strength: 0.26, radius: 0.62, threshold: 0.8 }}
         /*
          * Only the village windows are lit from within — small, warm, and few.

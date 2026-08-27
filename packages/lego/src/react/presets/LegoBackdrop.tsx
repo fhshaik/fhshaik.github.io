@@ -74,6 +74,18 @@ export interface LegoBackdropProps {
   grade?: boolean | GradeOptions;
   /** Kuwahara brushstroke filter. Expensive. */
   brushwork?: boolean | { radius?: number; strength?: number };
+  /**
+   * Animate the set's declared swirl centres, so the image churns without any
+   * brick moving. Warps geometry edges — suits a painting.
+   */
+  vortex?: boolean;
+  /** Halos swell and fade slowly. */
+  breathe?: boolean | { amount?: number; speed?: number };
+  /**
+   * Slow camera sway, in degrees. The viewer drifts; the subject stays put,
+   * which is the honest way to animate something that hangs on a wall.
+   */
+  drift?: number;
   /** LEGO colours that should emit light, with an optional twinkle. */
   glow?:
     | readonly string[]
@@ -142,6 +154,9 @@ export function LegoBackdrop({
   painterly = false,
   grade = false,
   brushwork = false,
+  vortex = false,
+  breathe = false,
+  drift = 0,
   glow,
   preload,
   tour,
@@ -208,6 +223,7 @@ export function LegoBackdrop({
         ao={ao}
         grade={grade}
         brushwork={brushwork}
+        vortex={vortex}
         onPick={interactive ? onPick : undefined}
         label={label}
       >
@@ -238,6 +254,8 @@ export function LegoBackdrop({
             pan={pan}
             tour={tour}
             regions={resolved.regions}
+            drift={drift}
+            vortices={vortex ? resolved.vortices : undefined}
             parallax={parallax}
             buildIn={buildIn}
             shift={shift}
@@ -249,6 +267,9 @@ export function LegoBackdrop({
         ) : null}
         {painterly && modelReady ? (
           <Painterly {...(typeof painterly === "object" ? painterly : {})} />
+        ) : null}
+        {breathe && modelReady ? (
+          <Breathe {...(typeof breathe === "object" ? breathe : {})} />
         ) : null}
         {glow && modelReady ? (
           <Glow
@@ -273,6 +294,8 @@ function ScrollSweep({
   pan,
   tour,
   regions,
+  drift,
+  vortices,
 }: {
   sweep: typeof DEFAULT_SWEEP;
   parallax: number;
@@ -283,6 +306,8 @@ function ScrollSweep({
   pan?: { travel?: number; distance?: number; rise?: number };
   tour?: readonly { section: string; region: string }[];
   regions?: Record<string, { focus: [number, number]; distance: number; label?: string }>;
+  drift: number;
+  vortices?: readonly { focus: [number, number]; radius: number; twist?: number; flow?: number }[];
 }) {
   const stage = useLegoStage();
   const [framed, setFramed] = useState(false);
@@ -316,6 +341,48 @@ function ScrollSweep({
     const center = box.getCenter(new THREE.Vector3());
     const extent = box.getSize(new THREE.Vector3());
     baseDistance.current = stage.camera.position.distanceTo(center);
+
+    // Swirl centres are declared in normalised panel coordinates; the pass needs
+    // world positions so it can reproject them as the camera moves.
+    if (vortices && vortices.length > 0) {
+      stage.setVortices(
+        vortices.map((entry) => ({
+          position: new THREE.Vector3(
+            box.min.x + extent.x * entry.focus[0],
+            box.min.y + extent.y * entry.focus[1],
+            center.z,
+          ),
+          radius: extent.x * entry.radius,
+          twist: entry.twist,
+          flow: entry.flow,
+        })),
+      );
+    }
+
+    /*
+     * Camera sway. The scroll-derived view is stored, and a slow drift is added
+     * to it every frame — so the two compose instead of fighting: scrolling
+     * still moves the camera, and between scrolls it keeps breathing.
+     *
+     * Three incommensurate frequencies, so the path never visibly repeats.
+     */
+    let swayStop: (() => void) | undefined;
+    const base = { azimuth: 0, elevation: 0, distance: 0, target: center.clone() };
+    let haveBase = false;
+
+    const applyWithDrift = (elapsed: number) => {
+      if (!haveBase) return;
+      const radians = Math.PI / 180;
+      const azimuth =
+        base.azimuth +
+        (Math.sin(elapsed * 0.11) * 0.62 + Math.sin(elapsed * 0.17 + 1.3) * 0.3) *
+          drift *
+          radians;
+      const elevation =
+        base.elevation + Math.cos(elapsed * 0.13) * 0.45 * drift * radians;
+      const distance = base.distance * (1 + Math.sin(elapsed * 0.07) * 0.006 * drift);
+      stage.setView({ azimuth, elevation, distance, target: base.target });
+    };
 
     const apply = () => {
       // Only push the set aside when there is room for a column beside it.
@@ -389,15 +456,16 @@ function ScrollSweep({
           center.z,
         );
 
-        stage.setView(
-          {
-            azimuth,
-            elevation,
-            distance: Math.max(extent.x, extent.y) * closeness,
-            target: focus,
-          },
-          { immediate: reduced },
-        );
+        const distance = Math.max(extent.x, extent.y) * closeness;
+        if (drift > 0 && !reduced) {
+          base.azimuth = azimuth;
+          base.elevation = elevation;
+          base.distance = distance;
+          base.target.copy(focus);
+          haveBase = true;
+          return;
+        }
+        stage.setView({ azimuth, elevation, distance, target: focus }, { immediate: reduced });
         return;
       }
 
@@ -446,6 +514,14 @@ function ScrollSweep({
     scroll.current = window.scrollY;
     apply();
 
+    if (drift > 0 && !reduced) {
+      let elapsed = 0;
+      swayStop = stage.addUpdater((delta) => {
+        elapsed += delta;
+        applyWithDrift(elapsed);
+      });
+    }
+
     window.addEventListener("scroll", onScroll, { passive: true });
     if (!reduced && parallax > 0) {
       window.addEventListener("pointermove", onPointer, { passive: true });
@@ -456,8 +532,23 @@ function ScrollSweep({
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("resize", apply);
+      swayStop?.();
     };
-  }, [stage, framed, sweep, parallax, buildIn, shift, startAzimuth, mode, pan, tour, regions]);
+  }, [
+    stage,
+    framed,
+    sweep,
+    parallax,
+    buildIn,
+    shift,
+    startAzimuth,
+    mode,
+    pan,
+    tour,
+    regions,
+    drift,
+    vortices,
+  ]);
 
   return null;
 }
@@ -517,6 +608,31 @@ function Painterly({ steps, saturate }: { steps?: number; saturate?: number }) {
     const frame = requestAnimationFrame(() => stage.applyPainterly({ steps, saturate }));
     return () => cancelAnimationFrame(frame);
   }, [stage, steps, saturate]);
+
+  return null;
+}
+
+/** Starts the halo breathing once the model (and so its halos) are in scene. */
+function Breathe({ amount, speed }: { amount?: number; speed?: number }) {
+  const stage = useLegoStage();
+
+  useEffect(() => {
+    if (!stage) return;
+    if (
+      typeof matchMedia !== "undefined" &&
+      matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    let stop: (() => void) | undefined;
+    const frame = requestAnimationFrame(() => {
+      stop = stage.breatheHalos({ amount, speed });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      stop?.();
+    };
+  }, [stage, amount, speed]);
 
   return null;
 }

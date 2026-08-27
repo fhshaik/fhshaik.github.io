@@ -74,6 +74,18 @@ export interface LegoSet {
    */
   regions?: Record<string, { focus: [number, number]; distance: number; label?: string }>;
   /**
+   * Swirl centres for the vortex pass, in the same normalised panel coordinates
+   * as {@link regions} — x across the model, y up it. `radius` is a fraction of
+   * the model's width. Resolved to world space by the backdrop.
+   */
+  vortices?: readonly {
+    focus: [number, number];
+    radius: number;
+    twist?: number;
+    flow?: number;
+    speed?: number;
+  }[];
+  /**
    * Light sources within the build, in raw LDraw coordinates.
    *
    * Read off the model rather than guessed: for 21333 these are the eighteen
@@ -153,6 +165,12 @@ export const LEGO_SETS = {
       { position: [-480, -508, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
       { position: [-100, -508, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
       { position: [-300, -524, -28], size: 78, color: "#FFE9A6", intensity: 1.45 },
+    ],
+    vortices: [
+      // The two spirals in the upper sky. Slow, and counter-rotating, so the
+      // sky churns rather than spinning as one wheel.
+      { focus: [0.42, 0.63], radius: 0.115, twist: 0.05, flow: 0.075, speed: 0.035 },
+      { focus: [0.6, 0.53], radius: 0.085, twist: -0.04, flow: -0.06, speed: 0.045 },
     ],
     regions: {
       // Coordinates read off the authored build: the cypress stands left of
