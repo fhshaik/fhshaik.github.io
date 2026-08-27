@@ -4,23 +4,42 @@
  * requests.
  *
  * Usage:
- *   node scripts/import-ldraw-set.mjs <omrSetId|mpdUrl> [--slug my-name] [--variant 1]
+ *   node scripts/import-ldraw-set.mjs <source> [--slug my-name] [--variant N]
+ *                                     [--allow-unlicensed]
+ *
+ * `source` is any of:
+ *   - an OMR set id             1383
+ *   - a direct model URL        https://.../21043-1.mpd
+ *   - a local file path         ~/Downloads/21333 - The Starry Night.mpd
+ *   - a local Stud.io archive   ~/Downloads/model.io      (zip containing .ldr)
  *
  * Examples:
- *   node scripts/import-ldraw-set.mjs 1383                    # Bonsai (10281)
- *   node scripts/import-ldraw-set.mjs 658 --slug pizza-to-go
+ *   node scripts/import-ldraw-set.mjs 1383 --slug cherry-blossoms
+ *   node scripts/import-ldraw-set.mjs "~/Downloads/21333 - The Starry Night.mpd" \
+ *     --slug starry-night --allow-unlicensed
  *
- * Builds are authored by LDraw contributors, not generated here. The script
- * records the author and licence of whatever it imports and refuses a model
- * that does not carry a redistributable licence.
+ * Builds are authored by other people, never generated here. The script records
+ * the author and licence of whatever it imports. By default it refuses a model
+ * without a redistributable licence; `--allow-unlicensed` downgrades that to a
+ * warning, for models you have your own right to use. Anything imported that
+ * way is yours to clear before publishing it.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
-  console.error("usage: node scripts/import-ldraw-set.mjs <omrSetId|mpdUrl> [--slug name] [--variant n]");
+  console.error(
+    [
+      "usage: node scripts/import-ldraw-set.mjs <source> [--slug name] [--variant n] [--allow-unlicensed]",
+      "",
+      "  source:  an OMR set id (1383), a model URL, a local .mpd/.ldr path,",
+      "           or a local Stud.io .io archive",
+    ].join("\n"),
+  );
   process.exit(1);
 }
 
@@ -30,6 +49,33 @@ const flag = (name, fallback) => {
   return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
 };
 const variant = Number(flag("variant", "0"));
+const allowUnlicensed = args.includes("--allow-unlicensed");
+
+/** Expands a leading `~` so a pasted Downloads path just works. */
+const expandHome = (input) =>
+  input.startsWith("~") ? path.join(os.homedir(), input.slice(1)) : input;
+
+/** Stud.io `.io` files are zip archives with the model inside as LDraw text. */
+function readArchive(file) {
+  const names = execFileSync("unzip", ["-Z1", file], { encoding: "utf8" })
+    .split(/\r?\n/)
+    .filter(Boolean);
+  const candidates = names.filter((name) => /\.(ldr|mpd|dat)$/i.test(name));
+  if (candidates.length === 0) {
+    throw new Error(
+      `No .ldr/.mpd found inside ${path.basename(file)} (contains: ${names.slice(0, 8).join(", ")})`,
+    );
+  }
+  // Prefer an explicit model.ldr, else the largest candidate.
+  const preferred =
+    candidates.find((name) => /(^|\/)model\.ldr$/i.test(name)) ??
+    candidates.sort((a, b) => b.length - a.length)[0];
+  console.log(`extracting ${preferred} from ${path.basename(file)}`);
+  return execFileSync("unzip", ["-p", file, preferred], {
+    encoding: "utf8",
+    maxBuffer: 512 * 1024 * 1024,
+  });
+}
 
 const projectRoot = process.cwd();
 const outputRoot = path.join(projectRoot, "public", "ldraw");
@@ -43,8 +89,20 @@ async function fetchText(url) {
   return response.text();
 }
 
-/** Resolves an OMR set id to the authored `.mpd` URL and the set's title. */
+/**
+ * Resolves the input to a model: a local file (plain or zipped), a direct URL,
+ * or an OMR set id.
+ */
 async function resolveModelUrl(input) {
+  const local = expandHome(input);
+  if (existsSync(local)) {
+    const isZip = readFileSync(local, { start: 0, end: 1 }).toString("latin1") === "PK";
+    return {
+      modelUrl: local,
+      title: null,
+      localText: isZip ? readArchive(local) : await readFile(local, "utf8"),
+    };
+  }
   if (/^https?:\/\//.test(input)) return { modelUrl: input, title: null };
   const page = await fetchText(`https://library.ldraw.org/omr/sets/${input}`);
   const links = [...page.matchAll(/href="(https:\/\/library\.ldraw\.org\/library\/omr\/[^"]+\.mpd)"/g)]
@@ -62,8 +120,8 @@ async function resolveModelUrl(input) {
   return { modelUrl: ordered[variant], title };
 }
 
-const { modelUrl, title } = await resolveModelUrl(target);
-const setNumber = path.basename(modelUrl).match(/^(\d+)-\d+/)?.[1] ?? "set";
+const { modelUrl, title, localText } = await resolveModelUrl(target);
+const setNumber = path.basename(modelUrl).match(/(\d{4,6})/)?.[1] ?? "set";
 const slug = flag(
   "slug",
   path
@@ -81,15 +139,19 @@ await mkdir(cacheRoot, { recursive: true });
 await mkdir(outputRoot, { recursive: true });
 console.log(`importing ${modelUrl}`);
 
-const source = existsSync(modelCache)
-  ? await readFile(modelCache, "utf8")
-  : await fetchText(modelUrl);
+const source =
+  localText ??
+  (existsSync(modelCache) ? await readFile(modelCache, "utf8") : await fetchText(modelUrl));
 if (!existsSync(modelCache)) await writeFile(modelCache, source);
 
 const author = source.match(/^0 Author:\s*(.+)$/m)?.[1]?.trim() ?? "Unknown";
 const license = source.match(/^0 !LICENSE\s*(.+)$/m)?.[1]?.trim() ?? "";
 if (!/redistributable/i.test(license)) {
-  throw new Error(`Model is not marked redistributable (licence: "${license || "none"}")`);
+  const message = `Model is not marked redistributable (licence: "${license || "none"}")`;
+  if (!allowUnlicensed) {
+    throw new Error(`${message}. Pass --allow-unlicensed if you have the right to use it.`);
+  }
+  console.warn(`warning: ${message} — importing anyway (--allow-unlicensed)`);
 }
 
 const sourceLines = source.replaceAll("\\", "/").split(/\r?\n/).map((line) => {
@@ -213,7 +275,8 @@ const report = {
   title,
   author,
   source: modelUrl,
-  license,
+  license: license || null,
+  unlicensed: !/redistributable/i.test(license) || undefined,
   placedParts: placed.count,
   uniquePlacedPartReferences: placed.ids.size,
   authoredSubmodels: [...sections.keys()].filter((name) => isModelSection(name, sections.get(name))).length,

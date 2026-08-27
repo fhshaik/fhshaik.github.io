@@ -1,0 +1,12 @@
+{
+  "slug": "flower-bouquet",
+  "set": "10280",
+  "title": "Flower Bouquet",
+  "author": "Orion Pobursky [OrionP]",
+  "source": "https://library.ldraw.org/library/omr/10280-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 750,
+  "uniquePlacedPartReferences": 67,
+  "authoredSubmodels": 41,
+  "packedLibraryFiles": 308
+}

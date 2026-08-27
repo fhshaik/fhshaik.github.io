@@ -65,6 +65,32 @@ export const LEGO_SETS = {
     fitToStuds: 16,
     note: "A small Town-era storefront — a compact set that loads fast.",
   },
+  "flower-bouquet": {
+    slug: "flower-bouquet",
+    setNumber: "10280",
+    title: "Flower Bouquet",
+    author: "Orion Pobursky [OrionP]",
+    license: "Redistributable under CCAL version 2.0",
+    source: "https://library.ldraw.org/omr/sets/1382",
+    url: "/ldraw/flower-bouquet-packed.mpd",
+    originalUrl: "/ldraw/flower-bouquet.mpd",
+    placedParts: 750,
+    fitToStuds: 15,
+    note: "Botanicals — roses, snapdragons and poppies, all in brick.",
+  },
+  "san-francisco": {
+    slug: "san-francisco",
+    setNumber: "21043",
+    title: "San Francisco",
+    author: "Orion Pobursky [OrionP]",
+    license: "Redistributable under CCAL version 2.0",
+    source: "https://library.ldraw.org/omr/sets/1093",
+    url: "/ldraw/san-francisco-packed.mpd",
+    originalUrl: "/ldraw/san-francisco.mpd",
+    placedParts: 567,
+    fitToStuds: 26,
+    note: "Architecture Skylines — the Golden Gate, Painted Ladies and Transamerica.",
+  },
 } as const satisfies Record<string, LegoSet>;
 
 export type LegoSetSlug = keyof typeof LEGO_SETS;

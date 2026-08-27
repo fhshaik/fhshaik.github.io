@@ -4,8 +4,21 @@ import { useState } from "react";
 import { LegoBackdrop } from "@fhshaik/lego/react";
 import { legoSet } from "@fhshaik/lego/core";
 import { Button, Divider, Lines, Plate, Reveal, StudMark } from "@fhshaik/lego/ui";
+import { useSectionSet } from "../useSectionSet";
 
 const NAV = ["Work", "Research", "Experience"] as const;
+
+/**
+ * Each section names the set that stands behind it. The backdrop follows the
+ * scroll, so the page moves through a few different builds rather than staring
+ * at one for its whole length.
+ */
+const SECTION_SETS: Record<string, string> = {
+  top: "cherry-blossoms",
+  work: "san-francisco",
+  research: "flower-bouquet",
+  experience: "pizza-to-go",
+};
 
 const WORK = [
   {
@@ -49,18 +62,26 @@ export default function LDrawPortfolio() {
   const [active, setActive] = useState<string>("Work");
   const bonsai = legoSet("cherry-blossoms");
 
+  const set = useSectionSet(SECTION_SETS, "cherry-blossoms");
+  const isBlossom = set === "cherry-blossoms";
+
   return (
     <>
       <LegoBackdrop
-        set="cherry-blossoms"
+        set={set}
         theme="blossom"
         lighting="cosy"
-        baseplate={20}
+        baseplate={isBlossom ? 20 : 30}
         baseplateColor="dark-brown"
         sweep={{ azimuth: 130, elevation: [12, 30], zoom: [1, 1.5] }}
         parallax={4}
         shift={0.22}
-        petals={{ count: 130, area: 52, height: 34, speed: 0.95, sway: 2.1, size: 0.5 }}
+        petals={
+          isBlossom
+            ? { count: 130, area: 52, height: 34, speed: 0.95, sway: 2.1, size: 0.5 }
+            : false
+        }
+        preload={["san-francisco", "flower-bouquet"]}
       />
 
       <div className="world">

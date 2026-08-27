@@ -39,3 +39,7 @@ yarn-error.log*
 /outputs/
 /work/
 /.cache-ldraw/
+
+# build artifacts
+tsconfig.tsbuildinfo
+.cache-ldraw/
