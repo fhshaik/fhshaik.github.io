@@ -28,9 +28,14 @@ function gradientMap(steps = 4): THREE.DataTexture {
 
   const data = new Uint8Array(steps * 4);
   for (let index = 0; index < steps; index += 1) {
-    // Bias toward the light end: pigment should read at full strength across
-    // most of a face.
-    const tone = 0.45 + 0.55 * (index / Math.max(steps - 1, 1));
+    /*
+     * A wide ramp puts a hard terminator across curved parts: a 1x1 round stud
+     * ends up half bright and half dark, which reads as a two-tone dome rather
+     * than as shading. Keeping the range narrow and near the light end means the
+     * bands are barely separated — enough to model a flat face, not enough to
+     * cut a circle in half.
+     */
+    const tone = 0.78 + 0.22 * (index / Math.max(steps - 1, 1));
     const value = Math.round(Math.min(1, tone) * 255);
     data.set([value, value, value, 255], index * 4);
   }
@@ -64,7 +69,7 @@ export function applyPainterly(
   scene: THREE.Object3D,
   options: PainterlyOptions = {},
 ): void {
-  const steps = options.steps ?? 4;
+  const steps = options.steps ?? 5;
   const saturate = options.saturate ?? 0.28;
   const map = gradientMap(steps);
   const converted = new Map<THREE.Material, THREE.Material>();

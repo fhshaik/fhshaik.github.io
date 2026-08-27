@@ -10,15 +10,23 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
  * while edges stay put, which is exactly what a loaded brush does: it smears
  * within a region of colour but stops at a boundary.
  *
- * Cost is the catch. A radius of 3 is 4 x 16 = 64 texture fetches per pixel, and
- * it scales with the square of the radius — so the radius is a compile-time
- * constant baked into the shader rather than a uniform, both to keep the loops
- * const-bounded for GLSL ES 1.0 and to stop anyone raising it at runtime by
- * accident.
+ * The radius is in **framebuffer pixels**, which matters more than it sounds: a
+ * radius of 3 on a 2880-wide render is a tenth of one percent of the image and
+ * is simply invisible. Strokes need to be several *CSS* pixels across to read as
+ * brushwork, so the stage pins the pixel ratio to 1 whenever this is enabled —
+ * which makes the effect visible and cuts the cost at the same time.
+ *
+ * Cost is the catch. A radius of 4 is 4 x 25 = 100 texture fetches per pixel and
+ * scales with the square of the radius, so the radius is a compile-time constant
+ * baked into the shader rather than a uniform: it keeps the loops const-bounded
+ * for GLSL ES 1.0, and stops anyone raising a quadratic cost at runtime.
  */
 
 export interface KuwaharaOptions {
-  /** Window radius in pixels. 2 is a hint, 4 is heavy smearing. Default 3. */
+  /**
+   * Window radius in framebuffer pixels. 3 is a hint, 5 reads clearly as
+   * brushwork, 7 is heavy smearing. Default 5.
+   */
   radius?: number;
   /** Blend against the original, 0–1. Below 1 keeps some brick detail. */
   strength?: number;
@@ -108,7 +116,7 @@ function shader(radius: number) {
 
 /** Builds the pass. Radius is fixed at construction; rebuild to change it. */
 export function createKuwaharaPass(options: KuwaharaOptions = {}): ShaderPass {
-  const radius = Math.max(1, Math.min(5, Math.round(options.radius ?? 3)));
+  const radius = Math.max(1, Math.min(8, Math.round(options.radius ?? 5)));
   const pass = new ShaderPass(shader(radius));
   pass.uniforms.strength.value = options.strength ?? 0.85;
   return pass;

@@ -236,12 +236,15 @@ export class LegoStage {
     };
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: !this.options.background });
-    // Kuwahara costs ~64 texture fetches per pixel, so its cost scales directly
-    // with the framebuffer. Capping the ratio when it is on halves that on a
-    // retina display, and the filter is smoothing the result anyway — the loss
-    // is far smaller than the saving.
+    /*
+     * Kuwahara's radius is in framebuffer pixels, so on a retina display the
+     * strokes shrink to invisibility exactly where the cost is highest. Pinning
+     * the ratio to 1 fixes both at once: the strokes become several CSS pixels
+     * across, and the pass does a quarter of the work. The filter is smoothing
+     * the image anyway, so the resolution loss barely shows.
+     */
     const ratioCap = this.options.brushwork
-      ? Math.min(this.options.maxPixelRatio, 1.25)
+      ? Math.min(this.options.maxPixelRatio, 1)
       : this.options.maxPixelRatio;
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, ratioCap));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;

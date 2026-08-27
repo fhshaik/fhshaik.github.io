@@ -9,6 +9,16 @@ export interface HaloSpec {
   color?: string;
   /** Brightness. 1 is a lit star; 2 is the moon. */
   intensity?: number;
+  /**
+   * How far to push the sprite toward the viewer, in LDraw units.
+   *
+   * A halo is a flat billboard. Centred exactly on the part it surrounds, the
+   * near half of that part pokes through the sprite plane and only the far half
+   * receives the additive light — which renders as a crisp two-tone split across
+   * the stud rather than a glow. Lifting the sprite clear of the geometry fixes
+   * it. Defaults to 20, about one stud.
+   */
+  lift?: number;
 }
 
 /**
@@ -88,7 +98,10 @@ export function createHalos(specs: readonly HaloSpec[], options: { flip?: boolea
 
     const sprite = new THREE.Sprite(material);
     const [x, y, z] = spec.position;
-    sprite.position.set(x, flip ? -y : y, flip ? -z : z);
+    // +z is toward the viewer for a wall-mounted panel, so the lift clears the
+    // part the halo belongs to instead of bisecting it.
+    const lift = spec.lift ?? 20;
+    sprite.position.set(x, flip ? -y : y, (flip ? -z : z) + lift);
     sprite.scale.setScalar(spec.size);
     // Draw after the bricks: these are light in the air, not surfaces.
     sprite.renderOrder = 10;

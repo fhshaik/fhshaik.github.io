@@ -81,7 +81,13 @@ export interface LegoSet {
    * moon. Rendered as soft halos, which is what actually reads as light — an
    * emissive brick only brightens the brick.
    */
-  halos?: readonly { position: [number, number, number]; size: number; color?: string; intensity?: number }[];
+  halos?: readonly {
+    position: [number, number, number];
+    size: number;
+    color?: string;
+    intensity?: number;
+    lift?: number;
+  }[];
   /** Theme this set brings with it, so each build sets its own mood. */
   theme?: LegoThemeName;
   /** Lighting that suits the set. */
