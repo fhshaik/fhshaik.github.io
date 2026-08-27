@@ -119,7 +119,11 @@ export const LEGO_SETS = {
     },
     halos: [
       // The moon: larger, warmer, and the brightest thing in the scene.
-      { position: [140, -452, -40], size: 210, color: "#FFF2B4", intensity: 2.3 },
+      // Measured centre and a 168 LDU span. The disc is already the brightest thing
+      // in the painting, so its halo is wide and faint — a corona bleeding past
+      // the edge, not a hotspot laid over the top, which only clipped and let the
+      // moon's own studs show through as dark specks.
+      { position: [140, -452, -28], size: 380, color: "#FFEFAF", intensity: 0.7, lift: 26 },
       // The eighteen star cores, at the positions their tiles occupy.
       { position: [-320, -228, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
       { position: [-133, -241, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
