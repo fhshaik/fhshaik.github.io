@@ -173,10 +173,53 @@
   text-decoration: none;
   font: inherit;
   appearance: none;
-  overflow: hidden;
+  /* Deliberately not overflow:hidden — the studs sit above the box and would be
+     clipped. The stripe below carries its own corner radius instead. */
   transition:
     transform var(--lego-duration) var(--lego-ease-glide),
     border-color var(--lego-duration) var(--lego-ease-glide);
+}
+
+/*
+ * Studs on the card's top edge.
+ *
+ * Sized as a fraction of their cell like the button's, but capped: a card is
+ * wide enough that a true 60%-of-pitch stud would be tens of pixels across and
+ * read as a pair of handles. Here they are a detail, so the cap wins on wide
+ * cards and the fraction keeps narrow ones sensible.
+ */
+.lego-plate__studs {
+  position: absolute;
+  inset-inline: 0;
+  /* Overlap the border by a pixel: a hairline gap made the studs read as
+     separate floating tabs rather than part of the brick. */
+  bottom: calc(100% - 1px);
+  display: flex;
+  pointer-events: none;
+}
+
+.lego-plate__studs i {
+  flex: 1;
+  display: grid;
+  place-items: end center;
+}
+
+.lego-plate__studs i::before {
+  content: "";
+  width: 60%;
+  max-width: 20px;
+  aspect-ratio: 3 / 1;
+  /* Rectangular: from the side a stud is a cylinder edge-on. */
+  border-radius: 1.5px 1.5px 0 0;
+  /*
+   * The card's own face colour, not the accent. Accent-coloured studs read as
+   * floating tabs, because nothing connects them across the top; in the body
+   * colour they are plainly part of the brick. They stay legible because what is
+   * behind these cards is the painting, not flat dark.
+   */
+  background: var(--lego-raised);
+  border: 1px solid var(--lego-line-soft);
+  border-bottom: 0;
 }
 
 /* The coloured edge: a brick seen from the side. */
@@ -187,6 +230,7 @@
   left: 0;
   right: 0;
   height: 2px;
+  border-radius: 4px 4px 0 0;
   background: var(--lego-plate-accent);
   transform: scaleX(0.14);
   transform-origin: left;

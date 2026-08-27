@@ -12,6 +12,11 @@ export interface PlateProps {
   children?: ReactNode;
   /** Draws the edge stripe full width, for a current/selected item. */
   selected?: boolean;
+  /**
+   * Studs along the top edge. 2 by default — a card is much squarer than a
+   * button, so it reads as a short brick rather than a long one. 0 removes them.
+   */
+  studs?: number;
   href?: string;
   external?: boolean;
   onClick?: MouseEventHandler<HTMLElement>;
@@ -21,9 +26,9 @@ export interface PlateProps {
 }
 
 /**
- * A card, treated as a thin plate: flat surface, hairline edge, and a coloured
- * stripe along the top that draws out to full width on hover. No studs — the
- * stripe carries the colour, so a grid of these stays calm.
+ * A card, treated as a brick seen from the side: flat face, hairline edge, a
+ * couple of studs on the top, and a coloured stripe along the top edge that
+ * draws out to full width on hover.
  *
  * Renders `<a>` with `href`, `<button>` with `onClick`, `<div>` otherwise, so an
  * interactive card is keyboard-reachable without a synthetic tabIndex.
@@ -35,6 +40,7 @@ export function Plate({
   meta,
   children,
   selected,
+  studs = 2,
   href,
   external,
   onClick,
@@ -51,6 +57,13 @@ export function Plate({
 
   const content = (
     <>
+      {studs > 0 ? (
+        <span className="lego-plate__studs" aria-hidden="true">
+          {Array.from({ length: studs }, (_, index) => (
+            <i key={index} />
+          ))}
+        </span>
+      ) : null}
       {eyebrow ? (
         <span className="lego-plate__eyebrow">
           <StudMark color={accent} size={6} />
