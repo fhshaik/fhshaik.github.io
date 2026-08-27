@@ -100,6 +100,9 @@ export default function LDrawPortfolio() {
           shadowTint: "#14276e",
           highlightTint: "#ffd75a",
         }}
+        // Kuwahara: smears within regions of colour but stops at edges, the way
+        // a loaded brush does. Expensive, so the radius stays small.
+        brushwork={{ radius: 3, strength: 0.8 }}
         bloom={{ strength: 0.3, radius: 0.6, threshold: 0.74 }}
         /*
          * Only the village windows are lit from within — small, warm, and few.

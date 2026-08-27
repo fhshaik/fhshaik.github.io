@@ -9,6 +9,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { GradeShader, type GradeOptions } from "./grade";
 import { applyPainterly, type PainterlyOptions } from "./painterly";
+import { createKuwaharaPass, type KuwaharaOptions } from "./kuwahara";
 import { STUDIO_THEME, type LegoTheme } from "../tokens/theme";
 import { partGeometry } from "./geometry";
 import { ghostMaterial, partMaterial, toLegoColor, type ColorInput } from "./materials";
@@ -124,6 +125,10 @@ export interface LegoStageOptions {
    * Colour grade. Turns a lit scene into a single image — see {@link GradeShader}.
    */
   grade?: boolean | GradeOptions;
+  /**
+   * Kuwahara brushstroke filter. Expensive — see {@link createKuwaharaPass}.
+   */
+  brushwork?: boolean | KuwaharaOptions;
   /** Slow turntable spin, in degrees per second. 0 disables it. */
   autoRotate?: number;
   cameraPosition?: [number, number, number];
@@ -192,6 +197,7 @@ export class LegoStage {
   private aoPass?: GTAOPass;
   private keyLight?: THREE.DirectionalLight;
   private gradePass?: ShaderPass;
+  private brushworkPass?: ShaderPass;
   private ground?: THREE.Mesh;
   private frame = 0;
   private dirty = true;
@@ -220,6 +226,7 @@ export class LegoStage {
       bloom: options.bloom ?? false,
       ao: options.ao ?? false,
       grade: options.grade ?? false,
+      brushwork: options.brushwork ?? false,
       autoRotate: options.autoRotate ?? 0,
       cameraPosition:
         options.cameraPosition ?? (options.isometric ? [40, 34, 40] : [14, 11, 16]),
@@ -229,7 +236,14 @@ export class LegoStage {
     };
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: !this.options.background });
-    this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, this.options.maxPixelRatio));
+    // Kuwahara costs ~64 texture fetches per pixel, so its cost scales directly
+    // with the framebuffer. Capping the ratio when it is on halves that on a
+    // retina display, and the filter is smoothing the result anyway — the loss
+    // is far smaller than the saving.
+    const ratioCap = this.options.brushwork
+      ? Math.min(this.options.maxPixelRatio, 1.25)
+      : this.options.maxPixelRatio;
+    this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, ratioCap));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1 * (options.exposure ?? 1);
@@ -400,7 +414,14 @@ export class LegoStage {
   }
 
   private setupBloom(): void {
-    if (!this.options.bloom && !this.options.ao && !this.options.grade) return;
+    if (
+      !this.options.bloom &&
+      !this.options.ao &&
+      !this.options.grade &&
+      !this.options.brushwork
+    ) {
+      return;
+    }
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -419,6 +440,7 @@ export class LegoStage {
     }
 
     if (!this.options.bloom) {
+      this.addBrushworkPass();
       this.addGradePass();
       this.composer.addPass(new OutputPass());
       return;
@@ -433,6 +455,9 @@ export class LegoStage {
       // stars — instead of hazing the whole painting.
       settings.threshold ?? 0.72,
     );
+    // Brushwork before bloom, so the glow spreads from the smeared image rather
+    // than being smeared itself.
+    this.addBrushworkPass();
     this.composer.addPass(this.bloomPass);
     // Grade after bloom, so the glow is graded with everything else rather than
     // sitting on top of the image untouched.
@@ -440,6 +465,24 @@ export class LegoStage {
     // Tone mapping and colour space conversion move to the end of the chain
     // once a composer is in play.
     this.composer.addPass(new OutputPass());
+  }
+
+  private addBrushworkPass(): void {
+    if (!this.options.brushwork || !this.composer) return;
+    const settings = typeof this.options.brushwork === "object" ? this.options.brushwork : {};
+    const pass = createKuwaharaPass(settings);
+    this.composer.addPass(pass);
+    this.brushworkPass = pass;
+    this.syncBrushworkResolution();
+  }
+
+  private syncBrushworkResolution(): void {
+    if (!this.brushworkPass) return;
+    const ratio = this.renderer.getPixelRatio();
+    this.brushworkPass.uniforms.resolution.value.set(
+      Math.max(this.container.clientWidth * ratio, 1),
+      Math.max(this.container.clientHeight * ratio, 1),
+    );
   }
 
   private addGradePass(): void {
@@ -1152,6 +1195,7 @@ export class LegoStage {
     this.renderer.setSize(width, height, false);
     this.composer?.setSize(width, height);
     this.aoPass?.setSize(width, height);
+    this.syncBrushworkResolution();
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.applyFrameShift();

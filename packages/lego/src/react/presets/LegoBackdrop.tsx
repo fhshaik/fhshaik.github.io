@@ -72,6 +72,8 @@ export interface LegoBackdropProps {
   painterly?: boolean | { steps?: number; saturate?: number };
   /** Colour grade: saturation, contrast, split-tone, vignette. */
   grade?: boolean | GradeOptions;
+  /** Kuwahara brushstroke filter. Expensive. */
+  brushwork?: boolean | { radius?: number; strength?: number };
   /** LEGO colours that should emit light, with an optional twinkle. */
   glow?:
     | readonly string[]
@@ -139,6 +141,7 @@ export function LegoBackdrop({
   plastic = false,
   painterly = false,
   grade = false,
+  brushwork = false,
   glow,
   preload,
   tour,
@@ -204,6 +207,7 @@ export function LegoBackdrop({
         bloom={bloom}
         ao={ao}
         grade={grade}
+        brushwork={brushwork}
         onPick={interactive ? onPick : undefined}
         label={label}
       >
