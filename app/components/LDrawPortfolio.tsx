@@ -58,8 +58,8 @@ const RESEARCH = [
 ];
 
 const EXPERIENCE = [
-  ["AI Engineer", "Alaris Security · 2025–present"],
-  ["Undergraduate Researcher", "Jaeger Lab, University of Chicago · 2025"],
+  ["AI Engineer", "Cybersecurity startup · 2025–present"],
+  ["Physics Researcher", "Jaeger Lab, University of Chicago · 2025"],
   ["B.S. Physics & Computer Science", "University of San Francisco · 2026"],
   ["Minors", "Astrophysics and Mathematics"],
 ];
@@ -165,7 +165,7 @@ export default function LDrawPortfolio() {
         <section className="world__opening" id="top">
           <Reveal as="p" className="world__eyebrow">
             <StudMark size={6} />
-            San Francisco · 2026
+            ML engineer · Physics researcher
           </Reveal>
           <h1 className="world__title">
             <Lines delay={0.15}>{["I work on"]}</Lines>
@@ -175,10 +175,10 @@ export default function LDrawPortfolio() {
           </h1>
           <Reveal delay={0.5}>
             <p className="world__lede">
-              Physics and computer science at the University of San Francisco, graduating 2026.
-              I build <strong>AI agents at Alaris Security</strong>, and I derived the continuum
-              theory in a{" "}
-              <strong>PNAS Nexus paper on why lattice metamaterials buckle</strong>.
+              ML engineer and physics researcher in San Francisco. I build{" "}
+              <strong>AI agents at a cybersecurity startup</strong>, and I work in{" "}
+              <strong>soft condensed matter</strong> — I derived the continuum theory in a PNAS
+              Nexus paper on why lattice metamaterials buckle.
             </p>
           </Reveal>
           <Reveal className="world__actions" delay={0.6}>
@@ -225,7 +225,7 @@ export default function LDrawPortfolio() {
             <Divider>Research</Divider>
           </Reveal>
           <Reveal delay={0.05}>
-            <h2 className="world__heading">Elastic metamaterials, and how they buckle</h2>
+            <h2 className="world__heading">Soft condensed matter</h2>
           </Reveal>
           <Reveal delay={0.1}>
             <p className="world__prose">
@@ -261,7 +261,7 @@ export default function LDrawPortfolio() {
           </Reveal>
           <Reveal delay={0.1}>
             <p className="world__prose">
-              At Alaris I shipped a provider-agnostic agent framework for autonomous alert triage,
+              I shipped a provider-agnostic agent framework for autonomous alert triage,
               handling tens of thousands of alerts a day across production tenants with tool
               orchestration and long-running workflows. An evaluation framework tests architecture
               changes before they deploy — one found a change that cut LLM inference cost per alert
