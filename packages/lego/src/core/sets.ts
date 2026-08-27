@@ -73,10 +73,19 @@ export interface LegoSet {
    * largest dimension: smaller means closer in.
    */
   regions?: Record<string, { focus: [number, number]; distance: number; label?: string }>;
+  /**
+   * Light sources within the build, in raw LDraw coordinates.
+   *
+   * Read off the model rather than guessed: for 21333 these are the eighteen
+   * 1x1 round tiles in bright-light-orange that form the star cores, plus the
+   * moon. Rendered as soft halos, which is what actually reads as light — an
+   * emissive brick only brightens the brick.
+   */
+  halos?: readonly { position: [number, number, number]; size: number; color?: string; intensity?: number }[];
   /** Theme this set brings with it, so each build sets its own mood. */
   theme?: LegoThemeName;
   /** Lighting that suits the set. */
-  lighting?: "studio" | "cosy" | "night";
+  lighting?: "studio" | "cosy" | "night" | "gallery";
 }
 
 export const LEGO_SETS = {
@@ -102,6 +111,29 @@ export const LEGO_SETS = {
       baseplate: false,
       pan: { travel: 0.62, distance: 0.42, rise: 0.16 },
     },
+    halos: [
+      // The moon: larger, warmer, and the brightest thing in the scene.
+      { position: [140, -452, -40], size: 210, color: "#FFF2B4", intensity: 2.3 },
+      // The eighteen star cores, at the positions their tiles occupy.
+      { position: [-320, -228, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-133, -241, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-460, -244, -28], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-540, -252, -28], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [38, -254, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-340, -308, -28], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-62, -312, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-130, -326, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-435, -341, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-546, -378, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-305, -395, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-546, -398, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-130, -406, 0], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-40, -420, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-380, -460, -28], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-480, -508, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-100, -508, -36], size: 78, color: "#FFE9A6", intensity: 1.45 },
+      { position: [-300, -524, -28], size: 78, color: "#FFE9A6", intensity: 1.45 },
+    ],
     regions: {
       // Coordinates read off the authored build: the cypress stands left of
       // centre, the swirls fill the upper middle, the village sits low right.
@@ -113,7 +145,7 @@ export const LEGO_SETS = {
       easel: { focus: [0.9, 0.24], distance: 0.38, label: "Vincent at his easel" },
     },
     theme: "starry",
-    lighting: "night",
+    lighting: "gallery",
   },
   "cherry-blossoms": {
     slug: "cherry-blossoms",

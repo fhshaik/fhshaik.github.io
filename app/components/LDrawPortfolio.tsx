@@ -78,24 +78,35 @@ export default function LDrawPortfolio() {
         tour={TOUR}
         parallax={3}
         shift={0.2}
-        exposure={0.88}
+        // Even, colour-true light and no cast shadows: the pigment is vivid, and
+        // a key light only threw arbitrary shadows across the artwork.
+        shadows={false}
+        exposure={1}
         // Contact shadow in every seam and stud: this is what stops a
         // brick-built surface reading as flat colour.
-        ao={{ radius: 0.3, intensity: 0.9 }}
-        plastic={{ clearcoat: 0.55, roughness: 0.4 }}
-        bloom={{ strength: 0.42, radius: 0.62, threshold: 0.62 }}
         /*
-         * The warm family only, read off the model itself: bright-light-yellow
-         * is the moon and the star haloes (78 parts), bright-light-orange the
-         * star cores, and orange the village windows — so the houses light up
-         * too. White is deliberately excluded: the swirls are mostly white, and
-         * glowing them turned the whole sky into a lamp.
+         * Graphic, not photographic. Flat toon shading keeps each brick's own
+         * pigment instead of washing it toward white, and the grade pushes the
+         * whole frame into the painting's palette: ultramarine shadows, chrome
+         * yellow lights.
          */
-        glow={{
-          colors: ["bright-light-yellow", "bright-light-orange", "yellow", "orange"],
-          intensity: 1.35,
-          twinkle: 0.26,
+        painterly={{ steps: 4, saturate: 0.34 }}
+        grade={{
+          saturation: 1.42,
+          contrast: 1.16,
+          lift: 0.012,
+          toning: 0.26,
+          vignette: 0.38,
+          shadowTint: "#14276e",
+          highlightTint: "#ffd75a",
         }}
+        bloom={{ strength: 0.3, radius: 0.6, threshold: 0.74 }}
+        /*
+         * Only the village windows are lit from within — small, warm, and few.
+         * The stars and moon are handled by the set's own halos instead:
+         * brightening a brick does not read as light, the glow around it does.
+         */
+        glow={{ colors: ["orange"], intensity: 1.1, twinkle: 0.2, maxSize: 45 }}
       />
 
       <div className="world">

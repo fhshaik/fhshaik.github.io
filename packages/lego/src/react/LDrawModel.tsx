@@ -37,6 +37,7 @@ export function LDrawModel({
   edges,
   partsPath,
   onProgress,
+  halos,
 }: LDrawModelProps) {
   const stage = useLegoStage();
   // The load result is recorded against the src it belongs to, so a changed
@@ -74,6 +75,7 @@ export function LDrawModel({
       edges,
       partsPath,
       onProgress,
+      halos,
       signal: controller.signal,
     })
       .then((group) => {
@@ -101,7 +103,7 @@ export function LDrawModel({
     // `onStatusChange` and `onProgress` are deliberately excluded: inline
     // callbacks would otherwise reload the model on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, src, fitToStuds, ground, merge, shadows, edges, partsPath]);
+  }, [stage, src, fitToStuds, ground, merge, shadows, edges, partsPath, halos]);
 
   // Position updates are cheap; keep them out of the load effect so moving a
   // model does not re-fetch and re-parse it.

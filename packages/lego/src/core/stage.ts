@@ -6,6 +6,9 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { GradeShader, type GradeOptions } from "./grade";
+import { applyPainterly, type PainterlyOptions } from "./painterly";
 import { STUDIO_THEME, type LegoTheme } from "../tokens/theme";
 import { partGeometry } from "./geometry";
 import { ghostMaterial, partMaterial, toLegoColor, type ColorInput } from "./materials";
@@ -83,7 +86,11 @@ export interface LegoStageOptions {
    * `"studio"` is crisp and neutral; `"cosy"` is warmer and softer, with a
    * gentler key-to-fill ratio.
    */
-  lighting?: "studio" | "cosy" | "night";
+  /**
+   * `"studio"` neutral, `"cosy"` warm, `"night"` dim and cool, `"gallery"` even
+   * and shadowless — the way a painting is lit.
+   */
+  lighting?: "studio" | "cosy" | "night" | "gallery";
   /**
    * Tone-mapping exposure. Below 1 darkens — a night scene needs about 0.8, or
    * the key light flattens the painting into glare.
@@ -103,13 +110,20 @@ export interface LegoStageOptions {
    */
   bloom?: boolean | { strength?: number; radius?: number; threshold?: number };
   /**
-   * Ambient occlusion. Darkens the crevices between bricks and inside studs.
+   * Ambient occlusion via GTAO.
    *
-   * This is what stops a brick-built surface reading as flat colour: every seam
-   * and stud gains contact shadow, so the surface is legible as thousands of
-   * separate pieces. Costs a depth-normal pass.
+   * **Off by default, and it flickers on an on-demand renderer.** GTAO relies on
+   * temporal accumulation to converge: without a TAA pass feeding it a stable
+   * sequence of frames, each frame lands on a different noise pattern and an
+   * idle scene visibly crawls. Real shadow-mapped self-shadowing (see
+   * `shadows`) gives most of the same depth on a brick surface without the
+   * noise, so prefer that. Enable this only alongside temporal antialiasing.
    */
   ao?: boolean | { radius?: number; intensity?: number };
+  /**
+   * Colour grade. Turns a lit scene into a single image — see {@link GradeShader}.
+   */
+  grade?: boolean | GradeOptions;
   /** Slow turntable spin, in degrees per second. 0 disables it. */
   autoRotate?: number;
   cameraPosition?: [number, number, number];
@@ -176,6 +190,8 @@ export class LegoStage {
   private composer?: EffectComposer;
   private bloomPass?: UnrealBloomPass;
   private aoPass?: GTAOPass;
+  private keyLight?: THREE.DirectionalLight;
+  private gradePass?: ShaderPass;
   private ground?: THREE.Mesh;
   private frame = 0;
   private dirty = true;
@@ -203,6 +219,7 @@ export class LegoStage {
       fog: options.fog ?? false,
       bloom: options.bloom ?? false,
       ao: options.ao ?? false,
+      grade: options.grade ?? false,
       autoRotate: options.autoRotate ?? 0,
       cameraPosition:
         options.cameraPosition ?? (options.isometric ? [40, 34, 40] : [14, 11, 16]),
@@ -271,6 +288,40 @@ export class LegoStage {
     const cosy = mood === "cosy";
     const night = mood === "night";
 
+    if (mood === "gallery") {
+      // A painting is lit evenly and from the front, with nothing casting across
+      // it. A directional key throws arbitrary shadows over the artwork, which
+      // reads as damage rather than as depth — so this mood has no key light and
+      // no shadows at all. The drama comes from the halos instead, and from the
+      // pigment, which in this painting is vivid.
+      this.scene.add(new THREE.HemisphereLight(0xf4f7ff, 0x4a556e, 1.25));
+
+      const front = new THREE.DirectionalLight(0xffffff, 0.75);
+      front.position.set(0.6, 0.5, 6);
+      front.castShadow = false;
+      this.scene.add(front);
+
+      // A whisper from each side so the relief has some modelling without any
+      // one direction dominating.
+      for (const x of [-5, 5]) {
+        const side = new THREE.DirectionalLight(0xdfe8ff, 0.22);
+        side.position.set(x, 1.5, 3);
+        side.castShadow = false;
+        this.scene.add(side);
+      }
+
+      if (this.options.environment) {
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        const room = new RoomEnvironment();
+        this.environmentTexture = pmrem.fromScene(room, 0.05).texture;
+        this.scene.environment = this.environmentTexture;
+        this.scene.environmentIntensity = 0.3;
+        room.dispose?.();
+        pmrem.dispose();
+      }
+      return;
+    }
+
     this.scene.add(
       new THREE.HemisphereLight(
         night ? 0x93a4d8 : cosy ? 0xfff2e0 : 0xffffff,
@@ -283,9 +334,10 @@ export class LegoStage {
 
     const key = new THREE.DirectionalLight(
       night ? 0xc8d4ff : cosy ? 0xffe6bd : 0xfff3dd,
-      night ? 1.15 : cosy ? 2.1 : 2.6,
+      night ? 1.35 : cosy ? 2.1 : 2.6,
     );
     key.position.set(-9, 15, 9);
+    this.keyLight = key;
     key.castShadow = this.options.shadows;
     key.shadow.mapSize.set(2048, 2048);
     key.shadow.bias = -0.0009;
@@ -302,10 +354,17 @@ export class LegoStage {
 
     const fill = new THREE.DirectionalLight(
       night ? 0x6f80c0 : cosy ? 0xffd9e8 : 0xdfe9ff,
-      night ? 0.35 : cosy ? 1.0 : 0.7,
+      night ? 0.4 : cosy ? 1.0 : 0.7,
     );
     fill.position.set(8, 6, -10);
     this.scene.add(fill);
+
+    // A rim from behind and below: on a relief it catches the top edge of every
+    // brick, which is what makes the surface read as thousands of pieces rather
+    // than one printed panel.
+    const rim = new THREE.DirectionalLight(night ? 0x8fa6ff : 0xffffff, night ? 0.7 : 0.35);
+    rim.position.set(6, -4, -12);
+    this.scene.add(rim);
 
     if (cosy) this.renderer.toneMappingExposure = 1.2 * this.options.exposure;
 
@@ -334,8 +393,14 @@ export class LegoStage {
     }
   }
 
+  /** Flattens the scene's materials to graphic toon shading. */
+  applyPainterly(options: PainterlyOptions = {}): void {
+    applyPainterly(this.scene, options);
+    this.markDirty();
+  }
+
   private setupBloom(): void {
-    if (!this.options.bloom && !this.options.ao) return;
+    if (!this.options.bloom && !this.options.ao && !this.options.grade) return;
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -354,6 +419,7 @@ export class LegoStage {
     }
 
     if (!this.options.bloom) {
+      this.addGradePass();
       this.composer.addPass(new OutputPass());
       return;
     }
@@ -368,9 +434,30 @@ export class LegoStage {
       settings.threshold ?? 0.72,
     );
     this.composer.addPass(this.bloomPass);
+    // Grade after bloom, so the glow is graded with everything else rather than
+    // sitting on top of the image untouched.
+    this.addGradePass();
     // Tone mapping and colour space conversion move to the end of the chain
     // once a composer is in play.
     this.composer.addPass(new OutputPass());
+  }
+
+  private addGradePass(): void {
+    if (!this.options.grade || !this.composer) return;
+    const settings = typeof this.options.grade === "object" ? this.options.grade : {};
+    const pass = new ShaderPass(GradeShader);
+    const uniforms = pass.uniforms;
+    if (settings.saturation !== undefined) uniforms.saturation.value = settings.saturation;
+    if (settings.contrast !== undefined) uniforms.contrast.value = settings.contrast;
+    if (settings.lift !== undefined) uniforms.lift.value = settings.lift;
+    if (settings.toning !== undefined) uniforms.toning.value = settings.toning;
+    if (settings.vignette !== undefined) uniforms.vignette.value = settings.vignette;
+    if (settings.shadowTint) uniforms.shadowTint.value = new THREE.Color(settings.shadowTint);
+    if (settings.highlightTint) {
+      uniforms.highlightTint.value = new THREE.Color(settings.highlightTint);
+    }
+    this.composer.addPass(pass);
+    this.gradePass = pass;
   }
 
   /**
@@ -863,6 +950,25 @@ export class LegoStage {
     this.camera.near = Math.max(distance / 500, 0.05);
     this.camera.far = distance * 8 + spanH * 4;
     this.camera.updateProjectionMatrix();
+
+    // Fit the shadow frustum to what is actually in the scene. A fixed box
+    // silently drops shadows for anything larger than it.
+    if (this.keyLight && this.options.shadows) {
+      const reach = Math.max(spanH, size.y) * 0.8 + 2;
+      const shadow = this.keyLight.shadow.camera;
+      shadow.left = -reach;
+      shadow.right = reach;
+      shadow.top = reach;
+      shadow.bottom = -reach;
+      shadow.near = 0.5;
+      shadow.far = reach * 6;
+      shadow.updateProjectionMatrix();
+      this.keyLight.shadow.bias = -0.0004;
+      this.keyLight.shadow.normalBias = 0.05;
+      this.keyLight.target.position.copy(center);
+      this.keyLight.target.updateMatrixWorld();
+      if (!this.keyLight.target.parent) this.scene.add(this.keyLight.target);
+    }
 
     if (this.options.fog && this.options.background) {
       // Start the haze just in front of the subject and close it well before

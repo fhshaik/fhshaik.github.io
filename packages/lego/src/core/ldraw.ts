@@ -3,6 +3,7 @@ import { LDrawLoader } from "three/addons/loaders/LDrawLoader.js";
 import { LDrawConditionalLineMaterial } from "three/addons/materials/LDrawConditionalLineMaterial.js";
 import { LDrawUtils } from "three/addons/utils/LDrawUtils.js";
 import { LDU_TO_STUDS } from "../tokens/dimensions";
+import { createHalos, type HaloSpec } from "./halos";
 
 export interface LDrawModelOptions {
   /**
@@ -37,6 +38,12 @@ export interface LDrawModelOptions {
   partsPath?: string;
   onProgress?: (loaded: number, total: number) => void;
   signal?: AbortSignal;
+  /**
+   * Glows to place inside the model, in LDraw coordinates. Added after the
+   * model has been measured and scaled, so a large soft halo cannot inflate the
+   * bounding box and shrink the build.
+   */
+  halos?: readonly HaloSpec[];
 }
 
 /**
@@ -139,6 +146,7 @@ export async function loadLDrawModel(
     partsPath,
     onProgress,
     signal,
+    halos,
   } = options;
 
   const key = `${url}|${instanced}|${merge}|${edges}|${partsPath ?? ""}`;
@@ -210,6 +218,13 @@ export async function loadLDrawModel(
         object.receiveShadow = true;
       }
     });
+  }
+
+  // Halos go in last, once the model has been measured: a soft glow is much
+  // larger than the part it surrounds, and including it in the bounding box
+  // would shrink the whole build to fit.
+  if (halos && halos.length > 0) {
+    model.add(createHalos(halos));
   }
 
   container.updateMatrixWorld(true);

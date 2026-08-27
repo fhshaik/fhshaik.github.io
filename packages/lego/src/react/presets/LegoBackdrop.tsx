@@ -12,15 +12,21 @@ import { LDrawModel } from "../LDrawModel";
 import { Baseplate } from "../bricks";
 import { Petals } from "../Petals";
 import { Glow } from "../Glow";
+import type { GradeOptions } from "../../core/grade";
 import { useLegoStage } from "../context";
 
 export interface LegoBackdropProps {
   /** Official set to place in the world. */
   set?: LegoSetSlug | string;
   theme?: LegoThemeName;
-  lighting?: "cosy" | "studio" | "night";
+  lighting?: "cosy" | "studio" | "night" | "gallery";
   /** Tone-mapping exposure. Below 1 darkens. */
   exposure?: number;
+  /**
+   * Shadow-mapped self-shadowing. Off for a painting: a key light throws
+   * arbitrary shadows across the artwork.
+   */
+  shadows?: boolean;
   /** Studded baseplate under the set. Set to 0 to omit it. */
   baseplate?: number;
   baseplateColor?: string;
@@ -57,10 +63,25 @@ export interface LegoBackdropProps {
   bloom?: boolean | { strength?: number; radius?: number; threshold?: number };
   /** Contact shadow in the seams between bricks. */
   ao?: boolean | { radius?: number; intensity?: number };
-  /** Upgrade the loaded model's materials to physical plastic. */
+  /** Upgrade the loaded model's materials to physical plastic. Photographic. */
   plastic?: boolean | { clearcoat?: number; roughness?: number };
+  /**
+   * Flat, graphic toon shading — the opposite treatment to `plastic`, and the
+   * one that makes a build read as a painting rather than a photograph.
+   */
+  painterly?: boolean | { steps?: number; saturate?: number };
+  /** Colour grade: saturation, contrast, split-tone, vignette. */
+  grade?: boolean | GradeOptions;
   /** LEGO colours that should emit light, with an optional twinkle. */
-  glow?: readonly string[] | { colors: readonly string[]; intensity?: number; twinkle?: number };
+  glow?:
+    | readonly string[]
+    | {
+        colors: readonly string[];
+        intensity?: number;
+        twinkle?: number;
+        maxSize?: number;
+        maxElongation?: number;
+      };
   /**
    * Other sets to parse in the background, so switching to one is instant.
    * Warmed after the current set is on screen, on an idle callback.
@@ -112,9 +133,12 @@ export function LegoBackdrop({
   petals = false,
   fog = true,
   exposure,
+  shadows,
   bloom = false,
   ao = false,
-  plastic = true,
+  plastic = false,
+  painterly = false,
+  grade = false,
   glow,
   preload,
   tour,
@@ -176,8 +200,10 @@ export function LegoBackdrop({
         autoFrame
         fog={fog}
         exposure={exposure}
+        shadows={shadows}
         bloom={bloom}
         ao={ao}
+        grade={grade}
         onPick={interactive ? onPick : undefined}
         label={label}
       >
@@ -193,6 +219,7 @@ export function LegoBackdrop({
         <LDrawModel
           src={resolved.url}
           fitToStuds={resolved.fitToStuds}
+          halos={resolved.halos}
           at={[0, 0.5, 0]}
           onStatusChange={(status) => setReadyUrl(status === "ready" ? resolved.url : null)}
         />
@@ -216,9 +243,14 @@ export function LegoBackdrop({
         {plastic && modelReady ? (
           <Plastic {...(typeof plastic === "object" ? plastic : {})} />
         ) : null}
+        {painterly && modelReady ? (
+          <Painterly {...(typeof painterly === "object" ? painterly : {})} />
+        ) : null}
         {glow && modelReady ? (
           <Glow
-            {...(Array.isArray(glow) ? { colors: glow } : (glow as { colors: readonly string[] }))}
+            {...(Array.isArray(glow)
+              ? { colors: glow }
+              : (glow as { colors: readonly string[] }))}
           />
         ) : null}
         {children}
@@ -468,6 +500,19 @@ function Plastic({ clearcoat, roughness }: { clearcoat?: number; roughness?: num
     const frame = requestAnimationFrame(() => stage.refinePlastic({ clearcoat, roughness }));
     return () => cancelAnimationFrame(frame);
   }, [stage, clearcoat, roughness]);
+
+  return null;
+}
+
+/** Flattens the model to graphic toon shading once it is in the scene. */
+function Painterly({ steps, saturate }: { steps?: number; saturate?: number }) {
+  const stage = useLegoStage();
+
+  useEffect(() => {
+    if (!stage) return;
+    const frame = requestAnimationFrame(() => stage.applyPainterly({ steps, saturate }));
+    return () => cancelAnimationFrame(frame);
+  }, [stage, steps, saturate]);
 
   return null;
 }
