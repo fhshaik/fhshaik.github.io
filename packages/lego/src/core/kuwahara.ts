@@ -10,6 +10,14 @@ import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
  * while edges stay put, which is exactly what a loaded brush does: it smears
  * within a region of colour but stops at a boundary.
  *
+ * **Finding, from measuring it on a LEGO build: it has nothing to do here.** The
+ * filter's purpose is to produce large flat regions of colour with preserved
+ * edges, and that is what a brick surface already is. There is no brushwork for
+ * it to find, so the visible result is only blur — and making it visible at all
+ * requires pinning the framebuffer to 1x, which softens the whole image. Kept
+ * because it may suit a photographic or high-frequency source; do not expect it
+ * to help a build.
+ *
  * The radius is in **framebuffer pixels**, which matters more than it sounds: a
  * radius of 3 on a 2880-wide render is a tenth of one percent of the image and
  * is simply invisible. Strokes need to be several *CSS* pixels across to read as
