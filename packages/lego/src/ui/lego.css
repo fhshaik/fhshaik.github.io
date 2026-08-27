@@ -1,0 +1,406 @@
+/*
+ * The 2D kit.
+ *
+ * Structure only — every colour, measurement and easing comes from the custom
+ * properties emitted by `legoTokensCss()`.
+ *
+ * Design intent: the LEGO reads through *material and motion*, not ornament.
+ * Surfaces are flat with hairline edges and a single accent; the brick idea
+ * lands in the press (fast compression, slow spring back — a brick seating onto
+ * a stud), in a stud used as punctuation, and in the stud grid behind sections.
+ * Nothing here draws bumps on every control.
+ */
+
+/* --- a stud, used as punctuation ----------------------------------------- */
+
+.lego-stud-mark {
+  display: inline-block;
+  width: var(--lego-mark-size, 7px);
+  height: var(--lego-mark-size, 7px);
+  border-radius: 50%;
+  background: var(--lego-mark-color, var(--lego-accent));
+  /* The faint ring reads as the lip of a stud without shading it. */
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--lego-mark-color, var(--lego-accent)) 32%, transparent);
+  flex: none;
+  vertical-align: middle;
+}
+
+/* --- brick button --------------------------------------------------------- */
+
+.lego-button {
+  --lego-button-accent: var(--lego-accent);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.95em 1.5em;
+  border: 1px solid var(--lego-line);
+  border-radius: 3px;
+  background: var(--lego-raised);
+  color: var(--lego-ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  isolation: isolate;
+  transition:
+    transform var(--lego-press-up) var(--lego-ease-spring),
+    border-color var(--lego-duration) var(--lego-ease-glide),
+    color var(--lego-duration) var(--lego-ease-glide),
+    background-color var(--lego-duration) var(--lego-ease-glide);
+}
+
+/*
+ * Two studs on the top edge: a 3px detail, the same colour as the border, that
+ * only reads as LEGO once you look. Not a bump.
+ */
+.lego-button::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 1.5em;
+  width: 22px;
+  height: 3px;
+  border: 1px solid var(--lego-line);
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  background: var(--lego-raised);
+  transition: border-color var(--lego-duration) var(--lego-ease-glide);
+}
+
+/* The accent arrives as a drawn underline, not a fill. */
+.lego-button::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--lego-button-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--lego-duration) var(--lego-ease-snap);
+}
+
+.lego-button:hover:not(:disabled),
+.lego-button:focus-visible {
+  border-color: color-mix(in srgb, var(--lego-ink) 30%, transparent);
+}
+.lego-button:hover:not(:disabled)::before,
+.lego-button:focus-visible::before {
+  border-color: color-mix(in srgb, var(--lego-ink) 30%, transparent);
+}
+.lego-button:hover:not(:disabled)::after,
+.lego-button:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* The click: down fast, back slowly. */
+.lego-button:active:not(:disabled) {
+  transform: translateY(2px);
+  transition-duration: var(--lego-press-down);
+  transition-timing-function: var(--lego-ease-snap);
+}
+
+.lego-button[data-variant="accent"] {
+  background: var(--lego-accent);
+  border-color: var(--lego-accent);
+  color: var(--lego-accent-ink);
+}
+.lego-button[data-variant="accent"]::before {
+  background: var(--lego-accent);
+  border-color: var(--lego-accent);
+}
+.lego-button[data-variant="accent"]::after { background: var(--lego-accent-ink); }
+
+.lego-button[data-variant="quiet"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--lego-muted);
+  padding-inline: 0;
+}
+.lego-button[data-variant="quiet"]::before { display: none; }
+.lego-button[data-variant="quiet"]:hover:not(:disabled) { color: var(--lego-ink); }
+
+.lego-button[aria-pressed="true"] {
+  color: var(--lego-ink);
+  border-color: color-mix(in srgb, var(--lego-ink) 26%, transparent);
+}
+.lego-button[aria-pressed="true"]::after { transform: scaleX(1); }
+
+.lego-button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* --- plate: a card, seen as a thin slab --------------------------------- */
+
+.lego-plate {
+  --lego-plate-accent: var(--lego-accent);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 1.65rem 1.5rem 1.5rem;
+  border: 1px solid var(--lego-line-soft);
+  border-radius: 4px;
+  background: var(--lego-raised);
+  color: var(--lego-ink);
+  text-align: start;
+  text-decoration: none;
+  font: inherit;
+  appearance: none;
+  overflow: hidden;
+  transition:
+    transform var(--lego-duration) var(--lego-ease-glide),
+    border-color var(--lego-duration) var(--lego-ease-glide);
+}
+
+/* The coloured edge: a brick seen from the side. */
+.lego-plate::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--lego-plate-accent);
+  transform: scaleX(0.14);
+  transform-origin: left;
+  transition: transform var(--lego-duration-slow) var(--lego-ease-glide);
+}
+
+.lego-plate[data-interactive="true"] { cursor: pointer; }
+.lego-plate[data-interactive="true"]:hover,
+.lego-plate[data-interactive="true"]:focus-visible {
+  border-color: color-mix(in srgb, var(--lego-ink) 20%, transparent);
+  transform: translateY(-3px);
+}
+.lego-plate[data-interactive="true"]:hover::before,
+.lego-plate[data-interactive="true"]:focus-visible::before,
+.lego-plate[data-selected="true"]::before {
+  transform: scaleX(1);
+}
+.lego-plate[data-interactive="true"]:active { transform: translateY(1px); transition-duration: var(--lego-press-down); }
+
+.lego-plate__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  color: var(--lego-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.lego-plate__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.lego-plate__meta {
+  margin: 0;
+  color: var(--lego-muted);
+  font-size: 13px;
+  line-height: 1.68;
+}
+
+/* --- stud field: the LEGO surface, as a background ---------------------- */
+
+.lego-studfield {
+  position: relative;
+  /* Two offset dot layers read as a lit stud and its shadow. */
+  background-image:
+    radial-gradient(
+      circle at 50% 44%,
+      color-mix(in srgb, var(--lego-ink) 9%, transparent) 0 calc(var(--lego-stud) * 0.3),
+      transparent calc(var(--lego-stud) * 0.32)
+    ),
+    radial-gradient(
+      circle at 50% 56%,
+      color-mix(in srgb, var(--lego-surface) 60%, transparent) 0 calc(var(--lego-stud) * 0.3),
+      transparent calc(var(--lego-stud) * 0.32)
+    );
+  background-size: var(--lego-pitch) var(--lego-pitch);
+  background-position: center;
+}
+
+/* Fades out at the edges so it never looks like a tiled tile. */
+.lego-studfield[data-fade="true"] {
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 100%);
+}
+
+/* --- rail: vertical nav ------------------------------------------------- */
+
+.lego-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lego-rail__item { display: flex; }
+
+.lego-rail__button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  width: 100%;
+  padding: 0.85em 0;
+  border: 0;
+  border-bottom: 1px solid var(--lego-line-soft);
+  background: none;
+  color: var(--lego-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    color var(--lego-duration) var(--lego-ease-glide),
+    padding-inline-start var(--lego-press-up) var(--lego-ease-spring);
+}
+
+.lego-rail__button .lego-stud-mark {
+  opacity: 0;
+  transform: scale(0.5);
+  transition:
+    opacity var(--lego-duration) var(--lego-ease-glide),
+    transform var(--lego-press-up) var(--lego-ease-spring);
+}
+
+.lego-rail__button:hover { color: var(--lego-ink); }
+
+/* Active item slides out, the way you pull a brick from a wall. */
+.lego-rail__item[data-active="true"] .lego-rail__button {
+  color: var(--lego-ink);
+  padding-inline-start: 0.9em;
+}
+.lego-rail__item[data-active="true"] .lego-stud-mark {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- divider ------------------------------------------------------------ */
+
+.lego-divider {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin: 0;
+  color: var(--lego-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.lego-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--lego-line-soft);
+}
+
+/* --- swatch ------------------------------------------------------------- */
+
+.lego-swatch {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  color: var(--lego-muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lego-swatch__chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--lego-swatch-color);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  flex: none;
+}
+
+/* --- focus -------------------------------------------------------------- */
+
+.lego-button:focus-visible,
+.lego-plate:focus-visible,
+.lego-rail__button:focus-visible {
+  outline: 1px solid var(--lego-accent);
+  outline-offset: 3px;
+}
+
+/* --- scroll reveal ------------------------------------------------------ */
+
+.lego-reveal {
+  opacity: 0;
+  transform: translate3d(0, var(--lego-reveal-distance, 22px), 0);
+  filter: blur(8px);
+  transition:
+    opacity var(--lego-duration-slow) var(--lego-ease-glide) var(--lego-reveal-delay, 0s),
+    transform 780ms var(--lego-ease-glide) var(--lego-reveal-delay, 0s),
+    filter var(--lego-duration-slow) var(--lego-ease-glide) var(--lego-reveal-delay, 0s);
+  will-change: opacity, transform, filter;
+}
+
+.lego-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+}
+
+/* --- headline: per-word rise ------------------------------------------- */
+
+.lego-lines { display: block; }
+
+.lego-lines__word {
+  display: inline-block;
+  /* An inline-block drops the whitespace around it, so the trailing space is
+     kept inside the span and preserved here. Without this, "I build" sets as
+     "Ibuild". */
+  white-space: pre;
+  /* Clipped by the line box, so words rise out of nothing. */
+  transform: translate3d(0, 105%, 0);
+  transition: transform 900ms var(--lego-ease-glide) var(--lego-word-delay, 0s);
+  will-change: transform;
+}
+
+.lego-lines__line {
+  display: block;
+  overflow: hidden;
+  /* Room for descenders, which a plain overflow:hidden would clip. */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+
+.lego-lines.is-visible .lego-lines__word { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lego-reveal,
+  .lego-lines__word {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+  .lego-button,
+  .lego-plate,
+  .lego-rail__button {
+    transition-duration: 1ms;
+  }
+  .lego-plate[data-interactive="true"]:hover { transform: none; }
+}

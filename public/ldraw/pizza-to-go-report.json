@@ -1,0 +1,12 @@
+{
+  "slug": "pizza-to-go",
+  "set": "10036",
+  "title": "Pizza To Go",
+  "author": "Robert Paciorek [bercik]",
+  "source": "https://library.ldraw.org/library/omr/10036-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 166,
+  "uniquePlacedPartReferences": 71,
+  "authoredSubmodels": 6,
+  "packedLibraryFiles": 317
+}
