@@ -104,16 +104,16 @@ export default function LDrawPortfolio() {
         // a loaded brush does. Expensive, so the radius stays small.
         brushwork={false}
         /*
-         * Motion is deliberately limited to the viewer and the light: the
-         * coronas breathe, and the camera sways by under a degree. Both stop
-         * under prefers-reduced-motion.
+         * The only motion here is luminance: the coronas swell and fade, which
+         * is what stars do. Nothing moves in space.
          *
-         * No vortex. Warping the sky was tried and rejected — it reads as
-         * nauseating rather than alive, which makes sense: the eye expects a
-         * painting to hold still, and rubber-sheeting it fights that.
+         * Two spatial effects were tried and both rejected for causing motion
+         * sickness — warping the sky (vortex) and swaying the camera (drift).
+         * The pattern is consistent and worth respecting: a painting is
+         * something the eye expects to hold still, and moving either the picture
+         * or the viewpoint fights that expectation. Do not reintroduce either.
          */
-        breathe={{ amount: 0.14, speed: 0.08 }}
-        drift={1}
+        breathe={{ amount: 0.12, speed: 0.07 }}
         bloom={{ strength: 0.26, radius: 0.62, threshold: 0.8 }}
         /*
          * Only the village windows are lit from within — small, warm, and few.

@@ -82,8 +82,12 @@ export interface LegoBackdropProps {
   /** Halos swell and fade slowly. */
   breathe?: boolean | { amount?: number; speed?: number };
   /**
-   * Slow camera sway, in degrees. The viewer drifts; the subject stays put,
-   * which is the honest way to animate something that hangs on a wall.
+   * Slow camera sway, in degrees.
+   *
+   * **Tried on 21333 and rejected: it causes motion sickness**, as did warping
+   * the image (see {@link VortexShader}). Both move something the eye expects to
+   * be still. Left available for a subject that is not a picture — a model on a
+   * turntable takes it fine — but default to 0 for anything framed on a wall.
    */
   drift?: number;
   /** LEGO colours that should emit light, with an optional twinkle. */
