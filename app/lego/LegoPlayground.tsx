@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { LEGO_COLOR_LIST } from "@fhshaik/lego/tokens";
-import { LEGO_SET_LIST, type LegoSetSlug } from "@fhshaik/lego/core";
+import { useEffect } from "react";
+import { LEGO_SET_LIST, legoSet, type LegoSetSlug } from "@fhshaik/lego/core";
 import { LegoBackdrop } from "@fhshaik/lego/react";
 import { Button, Divider, Lines, Plate, Rail, Reveal, StudMark, Swatch } from "@fhshaik/lego/ui";
 
@@ -25,13 +26,16 @@ const PARTS = [
 export default function LegoPlayground() {
   const [set, setSet] = useState<LegoSetSlug>("cherry-blossoms");
   const [section, setSection] = useState<string>("sets");
+  const current = legoSet(set);
+
+  useEffect(() => {
+    document.documentElement.dataset.legoTheme = current.theme ?? "studio";
+  }, [current.theme]);
 
   return (
     <>
       <LegoBackdrop
         set={set}
-        theme={set === "cherry-blossoms" ? "blossom" : "studio"}
-        lighting="cosy"
         baseplateColor={set === "cherry-blossoms" ? "dark-brown" : "black"}
         sweep={{ azimuth: 150, elevation: [12, 32], zoom: [1, 1.5] }}
         parallax={5}

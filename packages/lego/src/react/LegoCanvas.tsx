@@ -65,6 +65,10 @@ export function LegoCanvas({
   });
 
   const themeValue = LEGO_THEMES[theme];
+  const themeRef = useRef(themeValue);
+  useEffect(() => {
+    themeRef.current = themeValue;
+  });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -72,7 +76,7 @@ export function LegoCanvas({
 
     const instance = new LegoStage(container, {
       ...optionsRef.current,
-      theme: themeValue,
+      theme: themeRef.current,
     });
     setStage(instance);
 
@@ -80,7 +84,13 @@ export function LegoCanvas({
       setStage(null);
       instance.dispose();
     };
-  }, [themeValue]);
+    // Deliberately mount-only: a theme change recolours in place below, rather
+    // than disposing the renderer and re-parsing every loaded model.
+  }, []);
+
+  useEffect(() => {
+    stage?.setBackground(themeValue.scene);
+  }, [stage, themeValue]);
 
   useEffect(() => {
     if (!stage || !onPick) return;

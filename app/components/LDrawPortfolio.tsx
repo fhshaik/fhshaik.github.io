@@ -5,6 +5,7 @@ import { LegoBackdrop } from "@fhshaik/lego/react";
 import { legoSet } from "@fhshaik/lego/core";
 import { Button, Divider, Lines, Plate, Reveal, StudMark } from "@fhshaik/lego/ui";
 import { useSectionSet } from "../useSectionSet";
+import { useEffect } from "react";
 
 const NAV = ["Work", "Research", "Experience"] as const;
 
@@ -14,10 +15,10 @@ const NAV = ["Work", "Research", "Experience"] as const;
  * at one for its whole length.
  */
 const SECTION_SETS: Record<string, string> = {
-  top: "cherry-blossoms",
+  top: "starry-night",
   work: "san-francisco",
-  research: "flower-bouquet",
-  experience: "pizza-to-go",
+  research: "cherry-blossoms",
+  experience: "tranquil-garden",
 };
 
 const WORK = [
@@ -62,15 +63,22 @@ export default function LDrawPortfolio() {
   const [active, setActive] = useState<string>("Work");
   const bonsai = legoSet("cherry-blossoms");
 
-  const set = useSectionSet(SECTION_SETS, "cherry-blossoms");
+  const set = useSectionSet(SECTION_SETS, "starry-night");
   const isBlossom = set === "cherry-blossoms";
+  // Name whatever is currently standing behind the page, and credit its author.
+  const current = legoSet(set);
+
+  // Each set brings its own mood: switching the root attribute repaints the
+  // whole page palette, and globals.css transitions the colours so it reads as
+  // a change of light rather than a flash.
+  useEffect(() => {
+    document.documentElement.dataset.legoTheme = current.theme ?? "studio";
+  }, [current.theme]);
 
   return (
     <>
       <LegoBackdrop
         set={set}
-        theme="blossom"
-        lighting="cosy"
         baseplateColor="dark-brown"
         sweep={{ azimuth: 130, elevation: [12, 30], zoom: [1, 1.5] }}
         parallax={4}
@@ -80,7 +88,7 @@ export default function LDrawPortfolio() {
             ? { count: 130, area: 52, height: 34, speed: 0.95, sway: 2.1, size: 0.5 }
             : false
         }
-        preload={["san-francisco", "flower-bouquet"]}
+        preload={["san-francisco", "cherry-blossoms"]}
       />
 
       <div className="world">
@@ -118,11 +126,11 @@ export default function LDrawPortfolio() {
           <Reveal delay={0.5}>
             <p className="world__lede">
               I work on simulation, scientific machine learning, and the infrastructure that
-              makes both reproducible. The set behind this page is{" "}
+              makes both reproducible. Behind this page:{" "}
               <strong>
-                {bonsai.setNumber} {bonsai.title}
+                {current.setNumber} {current.title}
               </strong>
-              , rendered from its authored LDraw model.
+              , rendered from the LDraw model authored by {current.author}.
             </p>
           </Reveal>
           <Reveal className="world__actions" delay={0.6}>
@@ -136,7 +144,9 @@ export default function LDrawPortfolio() {
             </Button>
             <span className="world__hint">
               <StudMark size={5} color="light-bluish-gray" />
-              Scroll — the set turns with you
+              {current.view?.mode === "pan"
+                ? "Scroll — move through the painting"
+                : "Scroll — the set turns with you"}
             </span>
           </Reveal>
         </section>

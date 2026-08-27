@@ -28,7 +28,9 @@ describe("set catalogue", () => {
       expect(set.author, set.slug).toBeTruthy();
       expect(set.author, set.slug).not.toMatch(/unknown/i);
       expect(set.license, set.slug).toMatch(redistributable);
-      expect(set.source, set.slug).toMatch(/^https:\/\/library\.ldraw\.org\//);
+      // Either the OMR itself or the LDraw.org forums, where OMR-compliant
+      // models are submitted before transfer.
+      expect(set.source, set.slug).toMatch(/^https:\/\/(library|forums)\.ldraw\.org\//);
     }
   });
 

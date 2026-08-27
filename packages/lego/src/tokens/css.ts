@@ -108,5 +108,14 @@ export function injectLegoTokens(options: TokenCssOptions = {}): void {
   if (!existing) document.head.prepend(style);
 }
 
-export { STUDIO_THEME, BLOSSOM_THEME, DAYLIGHT_THEME, LEGO_THEMES, LEGO_MOTION } from "./theme";
+export {
+  STUDIO_THEME,
+  STARRY_THEME,
+  BLOSSOM_THEME,
+  HARBOUR_THEME,
+  GARDEN_THEME,
+  DAYLIGHT_THEME,
+  LEGO_THEMES,
+  LEGO_MOTION,
+} from "./theme";
 export type { LegoTheme, LegoThemeName } from "./theme";

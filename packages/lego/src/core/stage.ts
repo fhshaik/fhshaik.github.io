@@ -852,6 +852,22 @@ export class LegoStage {
   }
 
   /**
+   * Recolours the ground and haze without rebuilding the stage.
+   *
+   * Swapping themes by recreating the stage would tear down the renderer and
+   * force every loaded model to re-parse, so the visible part is changed in
+   * place instead.
+   */
+  setBackground(color: string): void {
+    this.options.background = color;
+    const value = new THREE.Color(color);
+    if (this.scene.background instanceof THREE.Color) this.scene.background.copy(value);
+    else this.scene.background = value;
+    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.copy(value);
+    this.markDirty();
+  }
+
+  /**
    * Renders on demand: only when something changed, or continuously while
    * damping or auto-rotation is still in motion. An idle scene costs nothing.
    */

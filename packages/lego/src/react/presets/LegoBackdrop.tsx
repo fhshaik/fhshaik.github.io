@@ -82,8 +82,8 @@ const DEFAULT_SWEEP = {
  */
 export function LegoBackdrop({
   set = "cherry-blossoms",
-  theme = "studio",
-  lighting = "cosy",
+  theme,
+  lighting,
   baseplate = 24,
   baseplateColor = "sand-green",
   sweep,
@@ -111,7 +111,25 @@ export function LegoBackdrop({
   const modelReady = readyUrl === resolved.url;
 
   // A baseplate should be comfortably larger than the set standing on it.
-  const plateSize = baseplate === 0 ? 0 : Math.max(baseplate, Math.round(resolved.fitToStuds * 1.35));
+  const wantsPlate = resolved.view?.baseplate ?? true;
+  const plateSize =
+    baseplate === 0 || !wantsPlate
+      ? 0
+      : Math.max(baseplate, Math.round(resolved.fitToStuds * 1.15));
+
+  // A set may declare the angles that suit it; an explicit `sweep` prop still
+  // wins, so a page can always override.
+  const hinted = resolved.view
+    ? {
+        azimuth: resolved.view.sweep ?? DEFAULT_SWEEP.azimuth,
+        elevation: resolved.view.elevation ?? DEFAULT_SWEEP.elevation,
+        zoom: DEFAULT_SWEEP.zoom,
+      }
+    : {};
+  const resolvedSweep = { ...DEFAULT_SWEEP, ...hinted, ...sweep };
+  const startAzimuth = resolved.view?.azimuth ?? 0;
+  const mode = resolved.view?.mode ?? "orbit";
+  const pan = resolved.view?.pan;
 
   return (
     <div
@@ -126,8 +144,8 @@ export function LegoBackdrop({
       }}
     >
       <LegoCanvas
-        theme={theme}
-        lighting={lighting}
+        theme={theme ?? resolved.theme ?? "studio"}
+        lighting={lighting ?? resolved.lighting ?? "cosy"}
         orbit={false}
         autoFrame
         fog={fog}
@@ -154,7 +172,10 @@ export function LegoBackdrop({
 
         {modelReady ? (
           <ScrollSweep
-            sweep={{ ...DEFAULT_SWEEP, ...sweep }}
+            sweep={resolvedSweep}
+            startAzimuth={startAzimuth}
+            mode={mode}
+            pan={pan}
             parallax={parallax}
             buildIn={buildIn}
             shift={shift}
@@ -172,11 +193,17 @@ function ScrollSweep({
   parallax,
   buildIn,
   shift,
+  startAzimuth,
+  mode,
+  pan,
 }: {
   sweep: typeof DEFAULT_SWEEP;
   parallax: number;
   buildIn: boolean;
   shift: number;
+  startAzimuth: number;
+  mode: "orbit" | "pan";
+  pan?: { travel?: number; distance?: number; rise?: number };
 }) {
   const stage = useLegoStage();
   const [framed, setFramed] = useState(false);
@@ -208,6 +235,7 @@ function ScrollSweep({
     // Snapshot the framed distance once; the sweep scales relative to it.
     const box = new THREE.Box3().setFromObject(stage.root);
     const center = box.getCenter(new THREE.Vector3());
+    const extent = box.getSize(new THREE.Vector3());
     baseDistance.current = stage.camera.position.distanceTo(center);
 
     const apply = () => {
@@ -219,13 +247,42 @@ function ScrollSweep({
       const progress = reduced ? 0 : Math.min(1, Math.max(0, scroll.current / range));
 
       const azimuth =
-        ((sweep.azimuth * progress + (reduced ? 0 : pointer.current.x * parallax)) * Math.PI) / 180;
+        ((startAzimuth +
+          sweep.azimuth * progress +
+          (reduced ? 0 : pointer.current.x * parallax)) *
+          Math.PI) /
+        180;
       const [lowElevation, highElevation] = sweep.elevation;
       const elevation =
         (((lowElevation + (highElevation - lowElevation) * progress) +
           (reduced ? 0 : pointer.current.y * parallax * 0.5)) *
           Math.PI) /
         180;
+
+      if (mode === "pan") {
+        // Inside the frame: hold the camera close and facing, and slide the
+        // point it is looking at across the surface as the page scrolls. The
+        // subject stays the same distance away, so it never shrinks — it is the
+        // view that travels, not the object.
+        const travel = pan?.travel ?? 0.6;
+        const rise = pan?.rise ?? 0.15;
+        const closeness = pan?.distance ?? 0.45;
+        const focus = center.clone();
+        focus.x += (progress - 0.5) * extent.x * travel;
+        focus.y += (progress - 0.5) * extent.y * rise;
+
+        stage.setView(
+          {
+            azimuth,
+            elevation,
+            distance: Math.max(extent.x, extent.y) * closeness,
+            target: focus,
+          },
+          { immediate: reduced },
+        );
+        return;
+      }
+
       const [nearZoom, farZoom] = sweep.zoom;
       const distance = baseDistance.current * (nearZoom + (farZoom - nearZoom) * progress);
 
@@ -258,7 +315,7 @@ function ScrollSweep({
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("resize", apply);
     };
-  }, [stage, framed, sweep, parallax, buildIn, shift]);
+  }, [stage, framed, sweep, parallax, buildIn, shift, startAzimuth, mode, pan]);
 
   return null;
 }

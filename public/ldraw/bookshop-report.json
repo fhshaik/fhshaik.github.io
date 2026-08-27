@@ -1,0 +1,15 @@
+{
+  "slug": "bookshop",
+  "set": "10270",
+  "title": null,
+  "author": "Ulrich Röder [UR]",
+  "source": "https://library.ldraw.org/library/omr/10270-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 2456,
+  "uniquePlacedPartReferences": 245,
+  "authoredSubmodels": 25,
+  "packedLibraryFiles": 702,
+  "missingDependencies": [
+    "3-4ring10.dat"
+  ]
+}

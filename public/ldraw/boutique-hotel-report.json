@@ -1,0 +1,16 @@
+{
+  "slug": "boutique-hotel",
+  "set": "10297",
+  "title": null,
+  "author": "Philippe Hurbain [Philo]",
+  "source": "https://library.ldraw.org/library/omr/10297-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 3164,
+  "uniquePlacedPartReferences": 303,
+  "authoredSubmodels": 63,
+  "packedLibraryFiles": 804,
+  "missingDependencies": [
+    "parts/s/7904s01.dat",
+    "3-4ring10.dat"
+  ]
+}

@@ -11,6 +11,31 @@ html {
   scroll-behavior: smooth;
   /* The fixed scene sits behind everything; this is what shows through. */
   background: var(--lego-surface);
+  /* Custom properties cannot transition, but the colours reading them can — so
+     a theme swap reads as the light changing rather than a hard cut. */
+  transition: background-color 900ms var(--lego-ease-glide);
+}
+
+body,
+.world__title,
+.world__heading,
+.world__lede,
+.world__prose,
+.world__nav a,
+.world__mark,
+.world__eyebrow,
+.world__hint,
+.world__spec strong,
+.world__spec span {
+  transition:
+    color 900ms var(--lego-ease-glide),
+    background-color 900ms var(--lego-ease-glide),
+    border-color 900ms var(--lego-ease-glide);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body { transition: none; }
 }
 
 body {

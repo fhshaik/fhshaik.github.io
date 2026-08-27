@@ -84,9 +84,62 @@ export const BLOSSOM_THEME: LegoTheme = {
   scene: "#221A1E",
 };
 
+/**
+ * Deep night with a lamp-yellow accent — van Gogh's own palette, for 21333.
+ */
+export const STARRY_THEME: LegoTheme = {
+  name: "starry",
+  surface: "#0A1024",
+  raised: "#141C36",
+  ink: "#EDF1FF",
+  muted: "#8792B8",
+  line: "rgba(237, 241, 255, 0.16)",
+  lineSoft: "rgba(237, 241, 255, 0.07)",
+  // LDraw Yellow — the stars and the crescent moon.
+  accent: "#FAC80A",
+  accentInk: "#0A1024",
+  baseplate: "dark-blue",
+  scene: "#0A1024",
+};
+
+/** Fog grey with Golden Gate red. For the skylines. */
+export const HARBOUR_THEME: LegoTheme = {
+  name: "harbour",
+  surface: "#12171A",
+  raised: "#1B2226",
+  ink: "#E7EDEF",
+  muted: "#7C8A90",
+  line: "rgba(231, 237, 239, 0.15)",
+  lineSoft: "rgba(231, 237, 239, 0.06)",
+  // LDraw Dark_Red, the Golden Gate's actual International Orange stand-in.
+  accent: "#C9401F",
+  accentInk: "#FFFFFF",
+  baseplate: "dark-bluish-gray",
+  scene: "#12171A",
+};
+
+/** Deep green and sand. For the gardens and botanicals. */
+export const GARDEN_THEME: LegoTheme = {
+  name: "garden",
+  surface: "#0F1613",
+  raised: "#18211D",
+  ink: "#E9F0EA",
+  muted: "#7E8F84",
+  line: "rgba(233, 240, 234, 0.15)",
+  lineSoft: "rgba(233, 240, 234, 0.06)",
+  // LDraw Lime.
+  accent: "#A5CA18",
+  accentInk: "#0F1613",
+  baseplate: "dark-green",
+  scene: "#0F1613",
+};
+
 export const LEGO_THEMES = {
   studio: STUDIO_THEME,
+  starry: STARRY_THEME,
   blossom: BLOSSOM_THEME,
+  harbour: HARBOUR_THEME,
+  garden: GARDEN_THEME,
   daylight: DAYLIGHT_THEME,
 } as const;
 

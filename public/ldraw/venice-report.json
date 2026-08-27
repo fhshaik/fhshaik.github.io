@@ -1,0 +1,12 @@
+{
+  "slug": "venice",
+  "set": "21026",
+  "title": null,
+  "author": "Damien Roux [Darats]",
+  "source": "https://library.ldraw.org/library/omr/21026-1.mpd",
+  "license": "Redistributable under CCAL version 2.0 : see CAreadme.txt",
+  "placedParts": 210,
+  "uniquePlacedPartReferences": 46,
+  "authoredSubmodels": 9,
+  "packedLibraryFiles": 190
+}

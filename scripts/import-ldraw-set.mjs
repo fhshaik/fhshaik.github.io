@@ -233,7 +233,30 @@ function standardizedName(name) {
  * that the workers themselves keep extending as they discover sub-parts. Parts
  * are cached on disk and shared across imports, so later sets get faster still.
  */
-const CONCURRENCY = 12;
+const CONCURRENCY = 8;
+
+/**
+ * Fetches with retries.
+ *
+ * Eight workers hitting library.ldraw.org will occasionally be throttled, and
+ * treating a 429/503 as "part does not exist" silently dropped real geometry —
+ * models came out with holes and a misleading "unavailable" warning. Only a 404
+ * is taken as a definite answer.
+ */
+async function fetchWithRetry(url, attempts = 4) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return response;
+      if (response.status === 404) return null;
+      // Anything else (429, 5xx) is transient: back off and try again.
+    } catch {
+      // Network error: also transient.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150 * 2 ** attempt));
+  }
+  return null;
+}
 const queue = [];
 const queued = new Set();
 
@@ -260,8 +283,8 @@ async function fetchOne(sectionName) {
         `${unofficialBase}/${candidate}`,
       ];
       for (const url of urls) {
-        const response = await fetch(url);
-        if (response.ok) {
+        const response = await fetchWithRetry(url);
+        if (response) {
           text = await response.text();
           await mkdir(path.dirname(diskPath), { recursive: true });
           await writeFile(diskPath, text);
