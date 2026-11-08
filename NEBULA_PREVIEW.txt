@@ -1,0 +1,36 @@
+# ASCII Nebula Animation Preview
+
+This is a single frame from the procedural nebula animation that appears on the site.
+The animation runs at 10 FPS and creates a swirling effect.
+
+Sample Frame:
+                                                                                
+                                                                                
+                                        :++===                                  
+                                    :=++******++=:                              
+                                  -+***########***+-                            
+                                :+**###@@@@@@###**+=                            
+                               =+**###@@@@@@@###**+=-                           
+                              -+**###@@@@@@@####**+=-                           
+                              =+**###@@@@@@@###**++=-                           
+                              -+**###@@@@@@@###**+=-:                           
+                               =+**###@@@@@@@##**+=-                            
+                                -+**###@@@@@###*+=-                             
+                                 :+**###@@@@##*+=:                              
+                                   =+**####***+-                                
+                                     -+******=-                                 
+                                       :=++=-                                   
+                                                                                
+                                                                                
+
+Character Set Used: '@%#*+=-:. '
+- '@' = Brightest
+- ' ' = Darkest
+
+Animation Features:
+- Procedural generation using trigonometric functions
+- Swirling motion effect
+- 10 FPS cap for performance
+- Automatically pauses with prefers-reduced-motion
+- User can manually pause/resume
+
